@@ -114,7 +114,7 @@ def analyser_texte(texte, df_catalogue):
     return infos_client, panier_detecte
 
 # --- 5. INTERFACE ---
-st.title("🥐 Devo : Wassah Event")
+st.title("Devo   ")
 
 try:
     df_catalogue = pd.read_csv("catalogue.csv")
@@ -183,4 +183,5 @@ with col2:
         )
 
     else:
+
         st.warning("En attente d'analyse...")
