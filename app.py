@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 import re
+import os
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Devo - Wassah Event", layout="wide", page_icon="🥐")
@@ -18,45 +19,24 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FONCTION PDF (LE COEUR DU MODÈLE) ---
+# --- 3. FONCTION PDF AVEC FOND PERSONNALISÉ ---
 class PDF(FPDF):
     def header(self):
-        # Fond Beige sur toute la page (optionnel, sinon juste blanc)
-        # self.set_fill_color(247, 243, 232)
-        # self.rect(0, 0, 210, 297, 'F')
-        
-        # Titre Principal
-        self.set_font('Arial', 'B', 24)
-        self.set_text_color(93, 64, 55) # Marron Chocolat
-        self.cell(0, 10, 'DEVIS', 0, 1, 'C')
-        
-        # Nom de l'entreprise
-        self.set_font('Arial', 'B', 16)
-        self.cell(0, 10, 'Wassah Event', 0, 1, 'C')
-        
-        # Slogan
-        self.set_font('Arial', 'I', 10)
-        self.cell(0, 5, 'Des événements sur-mesure pour toutes vos occasions', 0, 1, 'C')
-        self.ln(2)
-        
-        # Bloc Contact (Encadré ou centré)
-        self.set_font('Arial', '', 9)
-        self.set_text_color(0, 0, 0)
-        contact_text = "Contact: Waré 06.65.62.00.92  |  Insta: @wassah.event  |  Lieu: 94"
-        self.cell(0, 5, contact_text, 0, 1, 'C')
-        self.ln(5)
-        
-        # Ligne de séparation
-        self.set_draw_color(93, 64, 55)
-        self.line(10, 45, 200, 45)
-        self.ln(10)
+        # Vérifie si l'image de fond existe
+        if os.path.exists("fond_devis.png"):
+            # Affiche l'image en plein écran (x=0, y=0, largeur=210, hauteur=297)
+            self.image("fond_devis.png", x=0, y=0, w=210, h=297)
+        else:
+            # Si pas d'image, on garde l'en-tête texte par défaut (sécurité)
+            self.set_font('Arial', 'B', 24)
+            self.set_text_color(93, 64, 55)
+            self.cell(0, 10, 'DEVIS', 0, 1, 'C')
+            self.set_font('Arial', '', 12)
+            self.cell(0, 10, 'Wassah Event', 0, 1, 'C')
+            self.ln(20)
 
     def footer(self):
-        self.set_y(-30)
-        self.set_font('Arial', 'B', 12)
-        self.set_text_color(93, 64, 55)
-        self.cell(0, 10, 'MERCI DE VOTRE CONFIANCE', 0, 1, 'C')
-        
+        # On écrit le numéro de page tout en bas
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         self.set_text_color(128)
@@ -67,65 +47,62 @@ def generer_pdf(client_info, df_panier, total_ttc):
     pdf.add_page()
     pdf.set_text_color(0, 0, 0)
     
+    # --- REGLAGE DE LA HAUTEUR DE DÉPART ---
+    # C'est ICI qu'on décide où commence le texte pour ne pas écrire sur le logo
+    # Si ton logo prend beaucoup de place, augmente ce chiffre (ex: 80 ou 100)
+    pdf.set_y(60) 
+    
     # --- BLOC CLIENT ---
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, "Devis prestation :", ln=True)
+    pdf.cell(0, 10, "Devis pour :", ln=True)
     
     pdf.set_font("Arial", '', 11)
-    # Fond beige pour le bloc client
-    pdf.set_fill_color(253, 248, 240) 
+    # Fond légèrement transparent/beige pour que le texte client ressorte bien sur l'image
+    pdf.set_fill_color(255, 255, 255) 
     
-    # On construit une boite multi-lignes pour les infos client
     infos_str = ""
     for ligne in client_info:
         infos_str += ligne + "\n"
     
-    # On nettoie les caractères spéciaux
     infos_str = infos_str.encode('latin-1', 'replace').decode('latin-1')
+    pdf.multi_cell(0, 6, infos_str, fill=True, border=1) # Bordure fine pour faire propre
+    pdf.ln(10)
     
-    pdf.multi_cell(0, 6, infos_str, fill=True, border=0)
-    pdf.ln(8)
-    
-    # --- TABLEAU DES PRESTATIONS ---
+    # --- TABLEAU ---
     pdf.set_font("Arial", 'B', 12)
-    pdf.set_fill_color(230, 218, 208) # Marron clair pour l'en-tête
-    pdf.cell(100, 10, "Prestations incluses", 1, 0, 'L', True)
+    pdf.set_fill_color(230, 218, 208)
+    pdf.cell(100, 10, "Prestations", 1, 0, 'L', True)
     pdf.cell(30, 10, "Prix Unit.", 1, 0, 'C', True)
     pdf.cell(20, 10, "Qté", 1, 0, 'C', True)
     pdf.cell(40, 10, "Total", 1, 1, 'C', True)
     
     pdf.set_font("Arial", size=11)
-    # On itère sur le DataFrame final
+    # Fond blanc pour les lignes du tableau pour lisibilité max
+    pdf.set_fill_color(255, 255, 255)
+    
     for index, row in df_panier.iterrows():
         nom = str(row['Désignation']).encode('latin-1', 'replace').decode('latin-1')
         prix = float(row['Prix Unit.'])
         qte = int(row['Qté'])
         total_ligne = float(row['Total'])
         
-        pdf.cell(100, 10, nom, 1)
-        pdf.cell(30, 10, f"{prix:.2f}", 1, 0, 'R')
-        pdf.cell(20, 10, str(qte), 1, 0, 'C')
-        pdf.cell(40, 10, f"{total_ligne:.2f}", 1, 1, 'R')
+        pdf.cell(100, 10, nom, 1, 0, 'L', True)
+        pdf.cell(30, 10, f"{prix:.2f}", 1, 0, 'R', True)
+        pdf.cell(20, 10, str(qte), 1, 0, 'C', True)
+        pdf.cell(40, 10, f"{total_ligne:.2f}", 1, 1, 'R', True)
     
     pdf.ln(5)
     
     # --- TOTAL ---
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(150, 10, "Tarif total :", 0, 0, 'R')
-    pdf.cell(40, 10, f"{total_ttc:.2f} EUR", 1, 1, 'R')
-    pdf.ln(10)
-    
-    # --- CONDITIONS (Copie exacte du PDF) ---
-    pdf.set_font("Arial", 'U', 10) # Souligné
-    pdf.cell(0, 6, "Conditions :", ln=True)
-    
-    pdf.set_font("Arial", '', 9) # Normal
-    pdf.cell(0, 5, "- Paiement possible en 2 fois (Acompte de 50% à payer lors de la réservation)", ln=True)
-    pdf.cell(0, 5, "- Aucun remboursement en cas d'annulation moins de 7 jours avant", ln=True)
+    # Petit fond blanc sous le total pour qu'il soit bien visible
+    pdf.set_fill_color(255, 255, 255)
+    pdf.cell(150, 10, "TOTAL A PAYER :", 0, 0, 'R')
+    pdf.cell(40, 10, f"{total_ttc:.2f} EUR", 1, 1, 'R', True)
     
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
-# --- 4. ANALYSE (MOTEUR INTELLIGENT) ---
+# --- 4. ANALYSE (MOTEUR) ---
 def analyser_texte(texte, df_catalogue):
     lignes = texte.split('\n')
     infos_client = []
@@ -135,20 +112,17 @@ def analyser_texte(texte, df_catalogue):
         ligne = ligne.strip()
         if not ligne: continue
         
-        # Détection commande (si commence par tiret)
         if ligne.startswith("-"):
             commande_brute = ligne.replace("-", "").strip()
             match_qte = re.match(r"(\d+)\s*(.*)", commande_brute)
             if match_qte:
                 qte = int(match_qte.group(1))
                 txt_produit = match_qte.group(2).lower()
-                
                 produit_trouve = None
                 prix_trouve = 0.0
                 
                 for index, row in df_catalogue.iterrows():
                     nom_catalogue = str(row['Produit'])
-                    # Recherche partielle intelligente
                     if txt_produit in nom_catalogue.lower():
                         produit_trouve = nom_catalogue
                         prix_trouve = float(row['Prix'])
@@ -159,22 +133,18 @@ def analyser_texte(texte, df_catalogue):
                 else:
                     panier_detecte.append({"Désignation": f"[?] {txt_produit}", "Prix Unit.": 0.0, "Qté": qte})
         else:
-            # C'est une info client
             infos_client.append(ligne)
-            
     return infos_client, panier_detecte
 
-# --- 5. INTERFACE UTILISATEUR ---
+# --- 5. INTERFACE ---
 st.title("🥐 Devo : Wassah Event")
 
-# Chargement catalogue
 try:
     df_catalogue = pd.read_csv("catalogue.csv")
 except:
-    st.error("⚠️ Fichier catalogue.csv introuvable.")
+    st.error("Catalogue introuvable")
     st.stop()
 
-# Initialisation Session
 if 'panier_df' not in st.session_state:
     st.session_state['panier_df'] = pd.DataFrame(columns=["Désignation", "Prix Unit.", "Qté"])
 if 'client_info' not in st.session_state:
@@ -184,19 +154,13 @@ col1, col2 = st.columns([1, 1.2])
 
 with col1:
     st.subheader("1. La Demande")
-    st.info("Copie-colle les infos comme dans l'exemple ci-dessous :")
-    
-    # Exemple formaté comme le PDF
     exemple = """Client : Moussa Diop
 Date : 08/11/2025
 Lieu : 94
-Thème : Princesse Rose
 
 - 2 box gourmande
 - 1 westaf 100"""
-    
     texte_input = st.text_area("Zone de texte :", height=250, placeholder=exemple)
-    
     if st.button("✨ Créer le Brouillon"):
         client, panier = analyser_texte(texte_input, df_catalogue)
         st.session_state['client_info'] = client
@@ -204,39 +168,12 @@ Thème : Princesse Rose
 
 with col2:
     st.subheader("2. Le Devis Final")
-    
     if not st.session_state['panier_df'].empty:
-        # Aperçu Client
-        st.markdown(f"**Client :** {st.session_state['client_info'][0] if st.session_state['client_info'] else '...'}")
-        
-        # Tableau Éditable
-        edited_df = st.data_editor(
-            st.session_state['panier_df'],
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Prix Unit.": st.column_config.NumberColumn(format="%.2f €"),
-                "Qté": st.column_config.NumberColumn(format="%d"),
-            }
-        )
-        
-        # Calcul Total
+        edited_df = st.data_editor(st.session_state['panier_df'], num_rows="dynamic", use_container_width=True)
         edited_df["Total"] = edited_df["Prix Unit."] * edited_df["Qté"]
         grand_total = edited_df["Total"].sum()
         
-        st.markdown("---")
-        # Affichage Total Style Wassah
         st.markdown(f"<h3 style='text-align: right; color: #5D4037;'>Total : {grand_total:.2f} €</h3>", unsafe_allow_html=True)
         
-        # Bouton PDF
         pdf_bytes = generer_pdf(st.session_state['client_info'], edited_df, grand_total)
-        
-        st.download_button(
-            label="📄 Télécharger le Devis PDF (Wassah Style)",
-            data=pdf_bytes,
-            file_name="devis_wassah_event.pdf",
-            mime="application/pdf",
-            type="primary"
-        )
-    else:
-        st.markdown("Remplis la zone de gauche pour commencer.")
+        st.download_button("📄 Télécharger le PDF (Sur Fond Perso)", pdf_bytes, "devis_wassah.pdf", "application/pdf", type="primary")
