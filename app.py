@@ -6,32 +6,40 @@ import re
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Devo", layout="wide", page_icon="🥐")
 
-# --- 2. CLASSE PDF AVEC POSITIONS CORRIGÉES ---
+# --- 2. CLASSE PDF AVEC ALIGNEMENTS STRICTS ---
 class PDF(FPDF):
     def header(self):
-        # Arrière-plan complet
+        # Arrière-plan
         try:
             self.image('fond_devis.png', x=0, y=0, w=210, h=297)
         except:
             pass
         
-        # Texte d'en-tête (Descendu pour ne pas toucher le logo DEVIS)
-        self.set_y(52) 
-        self.set_font('Arial', 'I', 11)
+        # Texte d'en-tête (Descendu pour ne pas toucher le logo)
+        self.set_y(55) 
+        self.set_font('Arial', 'I', 10)
         self.set_text_color(139, 115, 85)
+        # On réduit la largeur à 150mm et on centre pour ne pas dépasser
         self.cell(0, 10, "Des événements sur-mesure pour toutes vos occasions", 0, 1, 'C')
         
-        # Bloc Contact (Gauche) - Aligné avec le bloc Client
-        self.set_y(75)
-        self.set_font('Arial', '', 10)
+        # --- BLOC INFOS (Gauche & Droite) ---
+        # On fixe une hauteur commune pour l'alignement
+        hauteur_infos = 80
+        
+        # Bloc Contact (Gauche) - Décalé de 25mm du bord pour ne pas dépasser
+        self.set_y(hauteur_infos)
+        self.set_x(25) 
+        self.set_font('Arial', '', 9)
         self.set_text_color(0, 0, 0)
-        self.cell(60, 6, "Contact : [Ward] - 06.65.62.00.92", 0, 1, 'L')
-        self.cell(60, 6, "Insta : @wassah.event", 0, 1, 'L')
-        self.cell(60, 6, "Lieu : 94", 0, 1, 'L')
+        self.cell(0, 5, "Contact : [Ward] - 06.65.62.00.92", 0, 1, 'L')
+        self.set_x(25)
+        self.cell(0, 5, "Insta : @wassah.event", 0, 1, 'L')
+        self.set_x(25)
+        self.cell(0, 5, "Lieu : 94", 0, 1, 'L')
 
     def footer(self):
-        # Conditions de vente (Remontées pour être bien visibles)
-        self.set_y(-55)
+        # Conditions de vente (Remontées pour rester dans le gris)
+        self.set_y(-60)
         self.set_font('Arial', '', 8)
         self.set_text_color(80, 80, 80)
         cond1 = "Conditions - Paiement possible en 2 fois (Acompte de 50% à payer lors de la réservation)"
@@ -39,8 +47,8 @@ class PDF(FPDF):
         self.cell(0, 4, cond1.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
         self.cell(0, 4, cond2.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
         
-        self.ln(8)
-        self.set_font('Arial', 'I', 16)
+        self.ln(5)
+        self.set_font('Arial', 'I', 14)
         self.set_text_color(139, 115, 85)
         self.cell(0, 10, "MERCI DE VOTRE CONFIANCE", 0, 1, 'C')
 
@@ -48,40 +56,45 @@ def generer_pdf(client_info, df_panier, total_ttc):
     pdf = PDF()
     pdf.add_page()
     
-    # 1. Bloc Client (Droite) - Aligné à 75mm
-    pdf.set_y(75)
+    # 1. Bloc Client (Haut Droite) - On ajoute une marge de 25mm à droite
+    # On revient à la hauteur des infos (80)
+    pdf.set_y(80)
     pdf.set_font("Arial", 'B', 10)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 6, "Devis prestation déco :", 0, 1, 'R')
+    # On utilise une cellule avec une marge à droite (25mm)
+    pdf.set_right_margin(25)
+    pdf.cell(0, 5, "Devis prestation déco :", 0, 1, 'R')
     pdf.set_font("Arial", size=10)
     
-    # Affichage des infos client ligne par ligne
     for ligne in client_info:
-        pdf.cell(0, 6, txt=str(ligne).encode('latin-1', 'replace').decode('latin-1'), ln=True, align='R')
+        pdf.cell(0, 5, txt=str(ligne).encode('latin-1', 'replace').decode('latin-1'), ln=True, align='R')
     
-    # 2. Section Prestations (Placée dans la zone blanche centrale)
-    pdf.set_y(130) 
-    pdf.set_font("Arial", 'B', 14)
+    # 2. Section Prestations (Zone centrale)
+    pdf.set_y(135) 
+    pdf.set_left_margin(30) # Marge gauche pour la liste
+    pdf.set_right_margin(30) # Marge droite
+    
+    pdf.set_font("Arial", 'B', 13)
     pdf.set_text_color(93, 64, 55)
     pdf.cell(0, 10, "Prestations incluses", 0, 1, 'C')
-    pdf.ln(5)
+    pdf.ln(2)
     
-    pdf.set_font("Arial", size=11)
+    pdf.set_font("Arial", size=10)
     pdf.set_text_color(50, 50, 50)
     for _, row in df_panier.iterrows():
         nom = str(row['Désignation']).replace("[?] ", "").encode('latin-1', 'replace').decode('latin-1')
-        pdf.set_x(40) # Marge gauche pour centrer la liste à puces
-        pdf.cell(0, 8, f"- {nom} (x{int(row['Qté'])})", 0, 1, 'L')
+        pdf.cell(0, 7, f"- {nom} (x{int(row['Qté'])})", 0, 1, 'L')
 
-    # 3. Tarif Total (Descendu pour ne pas coller à la liste)
+    # 3. Tarif Total (Bien aligné à droite avec la marge de 25mm)
     pdf.set_y(220)
-    pdf.set_font("Arial", 'B', 13)
+    pdf.set_right_margin(25)
+    pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR  ", 0, 1, 'R')
+    pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR", 0, 1, 'R')
     
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
-# --- 3. ANALYSE ET INTERFACE (Inchangées) ---
+# --- 3. ANALYSE ET INTERFACE ---
 def analyser_texte(texte, df_catalogue):
     lignes = texte.split('\n')
     infos_client = []
