@@ -4,68 +4,181 @@ import re
 from fpdf import FPDF
 import streamlit_authenticator as stauth
 
-# --- 1. CONFIGURATION DE LA PAGE ---
+# --- 1. CONFIGURATION ET SÉCURITÉ ---
 st.set_page_config(page_title="Devo Pro", layout="wide", page_icon="🥐")
 
-# --- 2. DONNÉES D'AUTHENTIFICATION ---
-# Note : Dans les versions récentes, le format a changé
+# Configuration des comptes (à personnaliser)
 names = ['Administrateur']
 usernames = ['admin']
-passwords = ['1234']
+passwords = ['1234']  # Change ce mot de passe pour plus de sécurité
 
-# Correction cruciale pour la version 0.3.0+ : 
-# On doit hacher les mots de passe AVANT de créer le dictionnaire credentials
 hashed_passwords = stauth.Hasher(passwords).generate()
 
-credentials = {
-    'usernames': {
-        'admin': {
-            'name': 'Administrateur',
-            'password': hashed_passwords[0]  # On injecte le mot de passe haché ici
-        }
-    }
-}
-
-# --- 3. INITIALISATION ---
-# Correction de la signature : cookie_name, key, cookie_expiry_days
 authenticator = stauth.Authenticate(
-    credentials,
-    'devo_auth_cookie', 
-    'signature_key_unique',
+    {'usernames': {
+        usernames[0]: {'name': names[0], 'password': hashed_passwords[0]}
+    }},
+    'devo_cookie',
+    'signature_key',
     cookie_expiry_days=30
 )
 
-# --- 4. AFFICHAGE DU LOGIN ---
-# La méthode login() ne prend plus d'arguments de texte obligatoires dans les dernières versions
-# Elle utilise les clés du dictionnaire credentials
-authenticator.login(location='main')
+# Formulaire de connexion
+name, authentication_status, username = authenticator.login('Connexion', 'main')
 
-# --- 5. LOGIQUE DE L'APPLICATION ---
-if st.session_state["authentication_status"]:
-    # Sidebar
-    st.sidebar.title(f"✨ Espace de {st.session_state['name']}")
+if authentication_status:
+    # --- 2. MENU DE PERSONNALISATION (SIDEBAR) ---
+    st.sidebar.title(f"✨ Espace de {name}")
     authenticator.logout('Déconnexion', 'sidebar')
     
     st.sidebar.markdown("---")
-    st.sidebar.subheader("⚙️ Personnalisation")
+    st.sidebar.subheader("⚙️ Personnalisation du Devis")
 
-    # Champs de ton application
-    uploaded_bg = st.sidebar.file_uploader("Image de fond", type=["png", "jpg", "jpeg"])
-    nom_pro = st.sidebar.text_input("Entreprise", "Wassah Event")
-    contact_pro = st.sidebar.text_input("Contact", "Ward - 06.65.62.00.92")
+    # Choix du fond
+    uploaded_bg = st.sidebar.file_uploader("Image de fond (PNG/JPG)", type=["png", "jpg", "jpeg"])
+    fond_final = uploaded_bg if uploaded_bg else "fond_devis.png"
+
+    # Infos Entreprise
+    nom_pro = st.sidebar.text_input("Nom de l'entreprise", "Wassah Event")
+    contact_pro = st.sidebar.text_input("Contact & Tel", "Ward - 06.65.62.00.92")
     insta_pro = st.sidebar.text_input("Instagram", "@wassah.event")
-    lieu_pro = st.sidebar.text_input("Lieu", "94")
+    lieu_pro = st.sidebar.text_input("Zone / Lieu", "94")
 
-    # Ton contenu principal
-    st.title(f"🥐 Devo : {nom_pro}")
-    st.success(f"Connecté en tant que {st.session_state['name']}")
+    # Gestion du Catalogue
+    st.sidebar.subheader("💰 Tes Tarifs")
+    try:
+        df_catalogue = pd.read_csv("catalogue.csv")
+    except:
+        df_catalogue = pd.DataFrame(columns=["Produit", "Prix"])
     
-    # --- ICI TU PEUX METTRE LA SUITE DE TON CODE (TABLEAUX, PDF, ETC.) ---
+    # Éditeur de catalogue en direct
+    df_catalogue = st.sidebar.data_editor(df_catalogue, num_rows="dynamic", use_container_width=True)
 
-elif st.session_state["authentication_status"] is False:
+    # --- 3. LOGIQUE PDF ---
+    class PDF(FPDF):
+        def header(self):
+            try:
+                self.image(fond_final, x=0, y=0, w=210, h=297)
+            except:
+                pass
+            
+            # En-tête sur-mesure
+            self.set_y(52) 
+            self.set_font('Arial', 'I', 11)
+            self.set_text_color(139, 115, 85)
+            self.cell(0, 10, f"Des événements sur-mesure - {nom_pro}", 0, 1, 'C')
+            
+            # Blocs infos alignés
+            self.set_y(75)
+            self.set_x(25) 
+            self.set_font('Arial', '', 10)
+            self.set_text_color(0, 0, 0)
+            self.cell(0, 6, f"Contact : {contact_pro}", 0, 1, 'L')
+            self.set_x(25)
+            self.cell(0, 6, f"Insta : {insta_pro}", 0, 1, 'L')
+            self.set_x(25)
+            self.cell(0, 6, f"Lieu : {lieu_pro}", 0, 1, 'L')
+
+    def generer_pdf(client_info, df_panier, total_ttc):
+        pdf = PDF()
+        pdf.add_page()
+        
+        # Bloc Client (Haut Droite)
+        pdf.set_y(75)
+        pdf.set_right_margin(25)
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 6, "Devis prestation :", 0, 1, 'R')
+        pdf.set_font("Arial", size=10)
+        for ligne in client_info:
+            pdf.cell(0, 6, txt=str(ligne).encode('latin-1', 'replace').decode('latin-1'), ln=True, align='R')
+        
+        # Zone Prestations (Centre)
+        pdf.set_y(130) 
+        pdf.set_font("Arial", 'B', 14)
+        pdf.set_text_color(93, 64, 55)
+        pdf.cell(0, 10, "Prestations incluses", 0, 1, 'C')
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", size=11)
+        pdf.set_text_color(50, 50, 50)
+        for _, row in df_panier.iterrows():
+            nom = str(row['Désignation']).replace("[?] ", "").encode('latin-1', 'replace').decode('latin-1')
+            pdf.set_x(40)
+            pdf.cell(0, 8, f"- {nom} (x{int(row['Qté'])})", 0, 1, 'L')
+
+        # Tarif Total
+        pdf.set_y(215)
+        pdf.set_font("Arial", 'B', 13)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR  ", 0, 1, 'R')
+        
+        return pdf.output(dest='S').encode('latin-1', 'replace')
+
+    # --- 4. ANALYSE DU TEXTE ---
+    def analyser_texte(texte, df_catalogue):
+        lignes = texte.split('\n')
+        infos_client = []
+        panier_detecte = []
+        for ligne in lignes:
+            ligne = ligne.strip()
+            if not ligne: continue
+            match = re.search(r'(\d+)', ligne)
+            if match and ("-" in ligne or any(p in ligne.lower() for p in ["box", "westaf", "brick"])):
+                qte = int(match.group(1))
+                nom_saisi = re.sub(r'[-\d+]', '', ligne).strip().lower()
+                
+                produit_trouve = None
+                prix = 0.0
+                for _, row in df_catalogue.iterrows():
+                    if nom_saisi in str(row['Produit']).lower():
+                        produit_trouve = row['Produit']
+                        prix = float(row['Prix'])
+                        break
+                panier_detecte.append({"Désignation": produit_trouve if produit_trouve else f"[?] {nom_saisi}", "Prix Unit.": prix, "Qté": qte})
+            else:
+                infos_client.append(ligne)
+        return infos_client, panier_detecte
+
+    # --- 5. INTERFACE PRINCIPALE ---
+    st.title(f"🥐 Devo : {nom_pro}")
+
+    if 'panier_df' not in st.session_state:
+        st.session_state['panier_df'] = pd.DataFrame(columns=["Désignation", "Prix Unit.", "Qté"])
+    if 'client_info' not in st.session_state:
+        st.session_state['client_info'] = []
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("1. La Demande")
+        txt = st.text_area("Colle la demande client ici :", height=250, placeholder="Moussa Diop\n11/08/2026\n- 2 box gourmande")
+        if st.button("✨ Analyser et Créer le Brouillon"):
+            client, panier = analyser_texte(txt, df_catalogue)
+            st.session_state['client_info'] = client
+            st.session_state['panier_df'] = pd.DataFrame(panier)
+
+    with col2:
+        st.subheader("2. Le Devis Final")
+        if not st.session_state['panier_df'].empty:
+            edited_df = st.data_editor(st.session_state['panier_df'], use_container_width=True, num_rows="dynamic")
+            
+            # Calcul automatique du total
+            total = (edited_df["Prix Unit."] * edited_df["Qté"]).sum()
+            st.markdown(f"### Total : {total:.2f} €")
+            
+            pdf_bytes = generer_pdf(st.session_state['client_info'], edited_df, total)
+            
+            st.download_button(
+                label="📩 Télécharger le PDF Personnalisé",
+                data=pdf_bytes,
+                file_name=f"devis_{nom_pro.lower().replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.info("En attente d'une analyse de message à gauche...")
+
+elif authentication_status == False:
     st.error('Identifiant ou mot de passe incorrect')
-elif st.session_state["authentication_status"] is None:
-    st.warning('Veuillez entrer vos identifiants.')
-
-# --- CSS POUR LE LOOK ---
-st.markdown("""<style>.stActionButton {visibility: hidden;}</style>""", unsafe_allow_now=True)
+elif authentication_status == None:
+    st.warning('Veuillez entrer votre identifiant et votre mot de passe pour accéder à Devo.')
