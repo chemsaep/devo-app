@@ -11,10 +11,10 @@ names = ['Administrateur']
 usernames = ['admin']
 passwords = ['1234']
 
-# Cette syntaxe est la plus robuste contre les erreurs de version
+# Hachage sécurisé compatible avec toutes les versions
 hashed_passwords = stauth.Hasher(passwords).generate()
 
-credentials = {
+config_credentials = {
     'usernames': {
         usernames[0]: {
             'name': names[0],
@@ -23,36 +23,47 @@ credentials = {
     }
 }
 
-# Initialisation simplifiée
+# Initialisation de l'authentificateur
 authenticator = stauth.Authenticate(
-    credentials,
+    config_credentials,
     'devo_cookie',
     'signature_key',
     cookie_expiry_days=30
 )
 
-# Login : on gère les deux versions possibles de la bibliothèque
+# Gestion flexible du Login (Évite le TypeError ligne 16)
 try:
-    # Pour les versions récentes
+    # Tentative pour les versions récentes (0.3.0+)
     result = authenticator.login(location='main')
     if isinstance(result, tuple):
         name, authentication_status, username = result
     else:
-        # Dans certaines versions, login() ne renvoie rien et on check l'état dans l'objet
         name = st.session_state.get('name')
         authentication_status = st.session_state.get('authentication_status')
         username = st.session_state.get('username')
-except:
-    # Pour les versions plus anciennes
+except Exception:
+    # Repli pour les anciennes versions
     name, authentication_status, username = authenticator.login('Connexion', 'main')
 
 if authentication_status:
+    # --- 2. TON APPLICATION (Indentation importante) ---
     st.sidebar.title(f"✨ Espace de {name}")
     authenticator.logout('Déconnexion', 'sidebar')
     
-    # --- VOTRE APPLICATION ---
-    st.title("🥐 Devo : Wassah Event")
-    # ... (le reste de vos fonctions PDF et interface ici) ...
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("⚙️ Personnalisation")
+
+    uploaded_bg = st.sidebar.file_uploader("Image de fond", type=["png", "jpg", "jpeg"])
+    fond_final = uploaded_bg if uploaded_bg else "fond_devis.png"
+
+    nom_pro = st.sidebar.text_input("Entreprise", "Wassah Event")
+    contact_pro = st.sidebar.text_input("Contact", "Ward - 06.65.62.00.92")
+    insta_pro = st.sidebar.text_input("Instagram", "@wassah.event")
+    lieu_pro = st.sidebar.text_input("Lieu", "94")
+
+    # Logique PDF et Interface (Tes fonctions habituelles)
+    st.title(f"🥐 Devo : {nom_pro}")
+    # ... le reste de ton code d'analyse et de tableau ...
 
 elif authentication_status == False:
     st.error('Identifiant ou mot de passe incorrect')
