@@ -47,3 +47,4 @@ elif authentication_status == False:
     st.error('Identifiant ou mot de passe incorrect')
 elif authentication_status == None:
     st.warning('Veuillez entrer vos identifiants.')
+
