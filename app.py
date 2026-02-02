@@ -7,44 +7,54 @@ import streamlit_authenticator as stauth
 # --- 1. CONFIGURATION ET SÉCURITÉ ---
 st.set_page_config(page_title="Devo Pro", layout="wide", page_icon="🥐")
 
-# Données utilisateurs
 names = ['Administrateur']
 usernames = ['admin']
 passwords = ['1234']
 
-# Méthode de hachage la plus compatible
+# Cette syntaxe est la plus robuste contre les erreurs de version
 hashed_passwords = stauth.Hasher(passwords).generate()
 
-# Configuration directe sans passer par une variable externe
+credentials = {
+    'usernames': {
+        usernames[0]: {
+            'name': names[0],
+            'password': hashed_passwords[0]
+        }
+    }
+}
+
+# Initialisation simplifiée
 authenticator = stauth.Authenticate(
-    {'usernames': {
-        usernames[0]: {'name': names[0], 'password': hashed_passwords[0]}
-    }},
+    credentials,
     'devo_cookie',
     'signature_key',
     cookie_expiry_days=30
 )
 
-# Formulaire de connexion
-# Note : Sur certaines versions, c'est login('Connexion', 'main') 
-# ou authenticator.login() tout court.
+# Login : on gère les deux versions possibles de la bibliothèque
 try:
-    name, authentication_status, username = authenticator.login('main')
+    # Pour les versions récentes
+    result = authenticator.login(location='main')
+    if isinstance(result, tuple):
+        name, authentication_status, username = result
+    else:
+        # Dans certaines versions, login() ne renvoie rien et on check l'état dans l'objet
+        name = st.session_state.get('name')
+        authentication_status = st.session_state.get('authentication_status')
+        username = st.session_state.get('username')
 except:
+    # Pour les versions plus anciennes
     name, authentication_status, username = authenticator.login('Connexion', 'main')
 
 if authentication_status:
-    st.sidebar.title(f"✨ Bienvenue {name}")
+    st.sidebar.title(f"✨ Espace de {name}")
     authenticator.logout('Déconnexion', 'sidebar')
     
-    # --- ICI TU GARDES TOUT TON RESTE DE CODE (Sidebar, PDF, Analyse) ---
-    # (Veille à ce que le reste du code soit bien indenté sous ce "if")
+    # --- VOTRE APPLICATION ---
     st.title("🥐 Devo : Wassah Event")
-    
-    # ... la suite de ton code ...
+    # ... (le reste de vos fonctions PDF et interface ici) ...
 
 elif authentication_status == False:
     st.error('Identifiant ou mot de passe incorrect')
 elif authentication_status == None:
     st.warning('Veuillez entrer vos identifiants.')
-
