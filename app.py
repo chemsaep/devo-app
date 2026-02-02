@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import re
+import streamlit_authenticator as stauth
 from fpdf import FPDF
 
 # --- 1. CONFIGURATION & BARRE LATÉRALE ---
@@ -107,3 +108,4 @@ with col2:
         
         pdf_bytes = generer_pdf(["Client Test"], edited_df, total)
         st.download_button("📩 Télécharger le PDF Perso", pdf_bytes, "devis.pdf")
+
