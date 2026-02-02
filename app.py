@@ -1,150 +1,44 @@
 import streamlit as st
 import pandas as pd
-from fpdf import FPDF
 import re
+from fpdf import FPDF
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Devo", layout="wide", page_icon="🥐")
+# --- 1. CONFIGURATION DE LA PAGE ---
+st.set_page_config(page_title="Devo Pro", layout="wide")
 
-# --- 2. CLASSE PDF AVEC ALIGNEMENTS STRICTS ---
-class PDF(FPDF):
-    def header(self):
-        # Arrière-plan
-        try:
-            self.image('fond_devis.png', x=0, y=0, w=210, h=297)
-        except:
-            pass
-        
-        # Texte d'en-tête (Descendu pour ne pas toucher le logo)
-        self.set_y(55) 
-        self.set_font('Arial', 'I', 10)
-        self.set_text_color(139, 115, 85)
-        # On réduit la largeur à 150mm et on centre pour ne pas dépasser
-        self.cell(0, 10, "Des événements sur-mesure pour toutes vos occasions", 0, 1, 'C')
-        
-        # --- BLOC INFOS (Gauche & Droite) ---
-        # On fixe une hauteur commune pour l'alignement
-        hauteur_infos = 80
-        
-        # Bloc Contact (Gauche) - Décalé de 25mm du bord pour ne pas dépasser
-        self.set_y(hauteur_infos)
-        self.set_x(25) 
-        self.set_font('Arial', '', 9)
-        self.set_text_color(0, 0, 0)
-        self.cell(0, 5, "Contact : [Ward] - 06.65.62.00.92", 0, 1, 'L')
-        self.set_x(25)
-        self.cell(0, 5, "Insta : @wassah.event", 0, 1, 'L')
-        self.set_x(25)
-        self.cell(0, 5, "Lieu : 94", 0, 1, 'L')
+# --- 2. MENU DE CONFIGURATION (SIDEBAR) ---
+st.sidebar.title("⚙️ Configuration Pro")
 
-    def footer(self):
-        # Conditions de vente (Remontées pour rester dans le gris)
-        self.set_y(-60)
-        self.set_font('Arial', '', 8)
-        self.set_text_color(80, 80, 80)
-        cond1 = "Conditions - Paiement possible en 2 fois (Acompte de 50% à payer lors de la réservation)"
-        cond2 = "Aucun remboursement en cas d'annulation moins de 7 jours avant"
-        self.cell(0, 4, cond1.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
-        self.cell(0, 4, cond2.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
-        
-        self.ln(5)
-        self.set_font('Arial', 'I', 14)
-        self.set_text_color(139, 115, 85)
-        self.cell(0, 10, "MERCI DE VOTRE CONFIANCE", 0, 1, 'C')
+# Section 1 : Identité visuelle
+st.sidebar.subheader("Identité Visuelle")
+uploaded_bg = st.sidebar.file_uploader("Télécharger votre fond de devis (PNG/JPG)", type=["png", "jpg", "jpeg"])
+# Si l'utilisateur n'a rien mis, on garde ton fond par défaut
+fond_final = uploaded_bg if uploaded_bg else "fond_devis.png"
 
-def generer_pdf(client_info, df_panier, total_ttc):
-    pdf = PDF()
-    pdf.add_page()
-    
-    # 1. Bloc Client (Haut Droite) - On ajoute une marge de 25mm à droite
-    # On revient à la hauteur des infos (80)
-    pdf.set_y(80)
-    pdf.set_font("Arial", 'B', 10)
-    pdf.set_text_color(0, 0, 0)
-    # On utilise une cellule avec une marge à droite (25mm)
-    pdf.set_right_margin(25)
-    pdf.cell(0, 5, "Devis prestation déco :", 0, 1, 'R')
-    pdf.set_font("Arial", size=10)
-    
-    for ligne in client_info:
-        pdf.cell(0, 5, txt=str(ligne).encode('latin-1', 'replace').decode('latin-1'), ln=True, align='R')
-    
-    # 2. Section Prestations (Zone centrale)
-    pdf.set_y(135) 
-    pdf.set_left_margin(30) # Marge gauche pour la liste
-    pdf.set_right_margin(30) # Marge droite
-    
-    pdf.set_font("Arial", 'B', 13)
-    pdf.set_text_color(93, 64, 55)
-    pdf.cell(0, 10, "Prestations incluses", 0, 1, 'C')
-    pdf.ln(2)
-    
-    pdf.set_font("Arial", size=10)
-    pdf.set_text_color(50, 50, 50)
-    for _, row in df_panier.iterrows():
-        nom = str(row['Désignation']).replace("[?] ", "").encode('latin-1', 'replace').decode('latin-1')
-        pdf.cell(0, 7, f"- {nom} (x{int(row['Qté'])})", 0, 1, 'L')
+# Section 2 : Informations de l'entreprise
+st.sidebar.subheader("Infos Entreprise")
+nom_pro = st.sidebar.text_input("Nom de l'entreprise", "Wassah Event")
+contact_pro = st.sidebar.text_input("Contact (Nom & Tel)", "Ward - 06.65.62.00.92")
+insta_pro = st.sidebar.text_input("Instagram", "@wassah.event")
+lieu_pro = st.sidebar.text_input("Zone d'intervention", "94")
 
-    # 3. Tarif Total (Bien aligné à droite avec la marge de 25mm)
-    pdf.set_y(220)
-    pdf.set_right_margin(25)
-    pdf.set_font("Arial", 'B', 12)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR", 0, 1, 'R')
-    
-    return pdf.output(dest='S').encode('latin-1', 'replace')
+# Section 3 : Catalogue
+st.sidebar.subheader("Gestion des prix")
+uploaded_catalog = st.sidebar.file_uploader("Importer un catalogue CSV", type=["csv"])
+if uploaded_catalog:
+    df_catalogue = pd.read_csv(uploaded_catalog)
+else:
+    # Par défaut on essaie de charger ton catalogue actuel
+    try:
+        df_catalogue = pd.read_csv("catalogue.csv")
+    except:
+        df_catalogue = pd.DataFrame(columns=["Produit", "Prix"])
 
-# --- 3. ANALYSE ET INTERFACE ---
-def analyser_texte(texte, df_catalogue):
-    lignes = texte.split('\n')
-    infos_client = []
-    panier_detecte = []
-    for ligne in lignes:
-        ligne = ligne.strip()
-        if not ligne: continue
-        match = re.search(r'(\d+)', ligne)
-        if match and ("-" in ligne or any(p in ligne.lower() for p in ["box", "westaf", "brick"])):
-            qte = int(match.group(1))
-            nom_saisi = re.sub(r'[-\d+]', '', ligne).strip().lower()
-            produit_trouve = None
-            prix = 0.0
-            for _, row in df_catalogue.iterrows():
-                if nom_saisi in str(row['Produit']).lower():
-                    produit_trouve = row['Produit']
-                    prix = float(row['Prix'])
-                    break
-            panier_detecte.append({"Désignation": produit_trouve if produit_trouve else f"[?] {nom_saisi}", "Prix Unit.": prix, "Qté": qte})
-        else:
-            infos_client.append(ligne)
-    return infos_client, panier_detecte
+# On permet même de modifier le catalogue en direct !
+st.sidebar.write("Modifier vos tarifs :")
+df_catalogue = st.sidebar.data_editor(df_catalogue, num_rows="dynamic")
 
-st.title("🥐 Devo : Wassah Event")
-
-try:
-    df_catalogue = pd.read_csv("catalogue.csv")
-except:
-    st.error("Catalogue.csv introuvable")
-    st.stop()
-
-if 'panier_df' not in st.session_state:
-    st.session_state['panier_df'] = pd.DataFrame(columns=["Désignation", "Prix Unit.", "Qté"])
-if 'client_info' not in st.session_state:
-    st.session_state['client_info'] = []
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("1. La Demande")
-    txt = st.text_area("Entrez les détails :", height=200)
-    if st.button("✨ Créer le Devis"):
-        client, panier = analyser_texte(txt, df_catalogue)
-        st.session_state['client_info'] = client
-        st.session_state['panier_df'] = pd.DataFrame(panier)
-
-with col2:
-    st.subheader("2. Le Devis Final")
-    if not st.session_state['panier_df'].empty:
-        edited_df = st.data_editor(st.session_state['panier_df'], use_container_width=True)
-        total = (edited_df["Prix Unit."] * edited_df["Qté"]).sum()
-        pdf_bytes = generer_pdf(st.session_state['client_info'], edited_df, total)
-        st.download_button("📩 Télécharger le PDF", pdf_bytes, "devis_wassah.pdf", "application/pdf")
+# Section 4 : Conditions de vente
+st.sidebar.subheader("Conditions Légales")
+cond_acompte = st.sidebar.text_area("Conditions d'acompte", "Paiement possible en 2 fois (Acompte de 50% à payer lors de la réservation)")
+cond_annulation = st.sidebar.text_area("Conditions d'annulation", "Aucun remboursement en cas d'annulation moins de 7 jours avant")
