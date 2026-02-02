@@ -13,8 +13,12 @@ usernames = ['admin']
 passwords = ['1234']  # Change ce mot de passe dès que possible !
 
 # --- NOUVELLE SYNTAXE AUTHENTICATOR (v0.3+) ---
-hashed_passwords = stauth.Hasher(passwords).generate()
-
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
+)
 config = {
     'credentials': {
         'usernames': {
@@ -45,7 +49,7 @@ if authentication_status:
     # --- 2. MENU DE PERSONNALISATION (SIDEBAR) ---
     st.sidebar.title(f"✨ Espace de {name}")
     authenticator.logout('Déconnexion', 'sidebar')
-    
+
     st.sidebar.markdown("---")
     st.sidebar.subheader("⚙️ Personnalisation du Devis")
 
@@ -65,7 +69,7 @@ if authentication_status:
         df_catalogue = pd.read_csv("catalogue.csv")
     except:
         df_catalogue = pd.DataFrame(columns=["Produit", "Prix"])
-    
+
     df_catalogue = st.sidebar.data_editor(df_catalogue, num_rows="dynamic", use_container_width=True)
 
     # --- 3. LOGIQUE PDF ---
@@ -75,16 +79,16 @@ if authentication_status:
                 self.image(fond_final, x=0, y=0, w=210, h=297)
             except:
                 pass
-            
+
             # Texte d'en-tête (Comme sur l'image)
-            self.set_y(52) 
+            self.set_y(52)
             self.set_font('Arial', 'I', 10)
             self.set_text_color(139, 115, 85)
             self.cell(0, 10, "Des événements sur-mesure pour toutes vos occasions", 0, 1, 'C')
-            
+
             # Bloc Contact (Gauche)
             self.set_y(75)
-            self.set_x(25) 
+            self.set_x(25)
             self.set_font('Arial', '', 9)
             self.set_text_color(0, 0, 0)
             self.cell(0, 5, f"Contact : {contact_pro}", 0, 1, 'L')
@@ -102,7 +106,7 @@ if authentication_status:
             cond2 = "Aucun remboursement en cas d'annulation moins de 7 jours avant"
             self.cell(0, 4, cond1.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
             self.cell(0, 4, cond2.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
-            
+
             self.ln(5)
             self.set_font('Arial', 'I', 16)
             self.set_text_color(139, 115, 85)
@@ -111,7 +115,7 @@ if authentication_status:
     def generer_pdf(client_info, df_panier, total_ttc):
         pdf = PDF()
         pdf.add_page()
-        
+
         # Bloc Client (Droite)
         pdf.set_y(75)
         pdf.set_right_margin(25)
@@ -120,14 +124,14 @@ if authentication_status:
         pdf.set_font("Arial", size=10)
         for ligne in client_info:
             pdf.cell(0, 5, txt=str(ligne).encode('latin-1', 'replace').decode('latin-1'), ln=True, align='R')
-        
+
         # Prestations (Zone centrale)
-        pdf.set_y(135) 
+        pdf.set_y(135)
         pdf.set_font("Arial", 'B', 14)
         pdf.set_text_color(93, 64, 55)
         pdf.cell(0, 10, "Prestations incluses", 0, 1, 'C')
         pdf.ln(5)
-        
+
         pdf.set_font("Arial", size=11)
         pdf.set_text_color(50, 50, 50)
         for _, row in df_panier.iterrows():
@@ -139,7 +143,7 @@ if authentication_status:
         pdf.set_y(220)
         pdf.set_font("Arial", 'B', 13)
         pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR  ", 0, 1, 'R')
-        
+
         return pdf.output(dest='S').encode('latin-1', 'replace')
 
     # --- 4. ANALYSE DU TEXTE ---
@@ -154,7 +158,7 @@ if authentication_status:
             if match and ("-" in ligne or any(p in ligne.lower() for p in ["box", "westaf", "brick", "pastel"])):
                 qte = int(match.group(1))
                 nom_saisi = re.sub(r'[-\d+]', '', ligne).strip().lower()
-                
+
                 produit_trouve = None
                 prix = 0.0
                 for _, row in df_catalogue.iterrows():
@@ -190,9 +194,9 @@ if authentication_status:
         if not st.session_state['panier_df'].empty:
             edited_df = st.data_editor(st.session_state['panier_df'], use_container_width=True, num_rows="dynamic")
             total = (edited_df["Prix Unit."] * edited_df["Qté"]).sum()
-            
+
             st.markdown(f"### Total : {total:.2f} €")
-            
+
             pdf_bytes = generer_pdf(st.session_state['client_info'], edited_df, total)
             st.download_button("📩 Télécharger le PDF", pdf_bytes, f"devis_{username}.pdf", "application/pdf", use_container_width=True)
         else:
