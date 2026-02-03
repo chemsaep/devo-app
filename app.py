@@ -31,15 +31,14 @@ if selection and selection['selection']['rows']:
         if p not in st.session_state['produits_text']:
             st.session_state['produits_text'] += f"- 1 {p}\n"
 
-# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE AVEC TRANSPARENCE) ---
+# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE STYLE LUXE) ---
 class FusionIA(FPDF):
     def __init__(self, bg_path=None):
         super().__init__()
         self.bg_path = bg_path
-        self.ext_gstates = [] # Nécessaire pour gérer la transparence
+        self.ext_gstates = [] 
 
-    # --- FONCTIONS TECHNIQUES POUR LA TRANSPARENCE (ALPHA) ---
-    # Ces fonctions permettent à FPDF de comprendre la transparence
+    # --- FONCTIONS TRANSPARENCE ---
     def set_alpha(self, alpha, bm='Normal'):
         gs = {'ca': alpha, 'CA': alpha, 'BM': '/' + bm}
         self.ext_gstates.append(gs)
@@ -65,49 +64,48 @@ class FusionIA(FPDF):
             for i in range(1, len(self.ext_gstates) + 1):
                 self._out(f'/GS{i} {self.n - len(self.ext_gstates) + i - 1} 0 R')
             self._out('>>')
-    # ---------------------------------------------------------
+    # ------------------------------
 
     def header(self):
-        # 1. FOND : Image Pleine Page (Toujours Opaque au début)
+        # 1. FOND IMAGE
         if self.bg_path and os.path.exists(self.bg_path):
             try:
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
             except: pass
         
-        # 2. CONTENEUR : La "Feuille" avec TRANSPARENCE CIBLÉE
-        # C'est ici que s'applique ta demande
-        self.set_alpha(0.85) # Le cadre blanc devient semi-transparent (85% opaque)
-        
-        self.set_fill_color(255, 255, 255)
-        self.rect(10, 10, 190, 277, 'F') 
-        
-        self.set_alpha(1.0)  # On remet en opaque IMMEDIATEMENT pour le texte
+        # 2. CALQUE BLANC SEMI-TRANSPARENT (Cadre central)
+        # 0.85 est un bon équilibre (visible mais transparent)
+        self.set_alpha(0.85) 
+        self.set_fill_color(255, 255, 255) # Blanc pur
+        # Marge de 15mm sur les côtés pour laisser voir l'image en "bordure"
+        self.rect(15, 15, 180, 267, 'F') 
+        self.set_alpha(1.0) # Retour à l'opaque pour le texte
 
-        # 3. EN-TÊTE DESIGN
-        self.set_y(20) 
+        # 3. TITRE "DEVIS" (Style Élégant)
+        self.set_y(25) 
+        self.set_font('Times', '', 45) # Police Serif Élégante, très grande
+        self.set_text_color(160, 120, 90) # Couleur "Bronze/Or Doré" (RGB)
+        # On espace les lettres manuellement en ajoutant des espaces dans le texte
+        self.cell(0, 15, "D E V I S", 0, 1, 'C')
         
-        # Titre Principal
-        self.set_font('Helvetica', 'B', 24)
-        self.set_text_color(184, 134, 11) # Or foncé
-        self.cell(0, 10, "WASSAH EVENT", 0, 1, 'C')
+        # Sous-titre
+        self.set_font('Times', 'I', 14)
+        self.set_text_color(180, 150, 120) 
+        self.cell(0, 10, "Wassah Event - Des événements sur-mesure", 0, 1, 'C')
         
-        # Slogan
-        self.set_font('Helvetica', 'I', 10)
-        self.set_text_color(80, 80, 80) 
-        self.cell(0, 8, "Des événements sur-mesure", 0, 1, 'C')
-        
-        # Ligne de séparation
-        self.set_draw_color(184, 134, 11)
-        self.set_line_width(0.5)
-        x_line = (210 - 100) / 2
-        self.line(x_line, self.get_y()+2, x_line + 100, self.get_y()+2)
+        # Ligne de séparation fine dorée
+        self.set_draw_color(180, 150, 120)
+        self.set_line_width(0.3)
+        self.line(40, self.get_y()+2, 170, self.get_y()+2)
         self.ln(10)
 
     def footer(self):
-        self.set_y(-25)
-        self.set_font('Helvetica', 'I', 8)
-        self.set_text_color(100, 100, 100)
-        self.cell(0, 10, "Devis généré par Devo Pro - Document confidentiel", 0, 0, 'C')
+        # Le footer est géré dans le corps principal pour le "Merci", 
+        # ici juste les petits textes légaux
+        self.set_y(-20)
+        self.set_font('Helvetica', 'I', 7)
+        self.set_text_color(150, 150, 150)
+        self.cell(0, 10, "Document généré par Devo Pro", 0, 0, 'C')
 
 # Fonction de génération
 def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
@@ -123,79 +121,93 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf = FusionIA(bg_path=bg_path)
     pdf.add_page()
     
-    # 1. Bloc TITRE DU DOCUMENT
-    pdf.set_y(50)
-    pdf.set_font("Helvetica", 'B', 16)
-    pdf.set_text_color(40, 40, 40) 
-    pdf.cell(0, 10, "DEVIS PRESTATION", 0, 1, 'R')
-    pdf.ln(2)
-
-    # 2. Bloc INFO CLIENT
-    pdf.set_font("Helvetica", size=11)
-    pdf.set_text_color(0, 0, 0)
+    # --- MISE EN PAGE CONTENU ---
     
+    # Position de départ après le header
+    y_start = 65 
+    pdf.set_y(y_start)
+    
+    # --- BLOC DOUBLE COLONNE (Gauche: Contact Wassah / Droite: Client) ---
+    pdf.set_font("Helvetica", size=10)
+    pdf.set_text_color(60, 60, 60)
+    
+    # COLONNE GAUCHE (Tes infos fixes)
+    x_left = 25
+    pdf.set_xy(x_left, y_start)
+    pdf.set_font("Helvetica", 'B', 10)
+    pdf.cell(80, 5, "Contact :", 0, 1)
+    pdf.set_font("Helvetica", size=10)
+    pdf.set_x(x_left)
+    pdf.cell(80, 5, "Tel : 06.65.62.00.92", 0, 1) # Exemple (à modifier)
+    pdf.set_x(x_left)
+    pdf.cell(80, 5, "Insta : @wassah.event", 0, 1)
+    pdf.set_x(x_left)
+    pdf.cell(80, 5, "Lieu : Île-de-France", 0, 1)
+
+    # COLONNE DROITE (Infos Client dynamiques)
+    x_right = 110
+    pdf.set_xy(x_right, y_start)
+    pdf.set_font("Helvetica", 'B', 10)
+    pdf.cell(80, 5, "Devis pour :", 0, 1, 'R') # Align Right
+    
+    pdf.set_font("Helvetica", size=10)
     txt_client = info_client if info_client else "Client Inconnu"
     for ligne in txt_client.split('\n'):
         safe_txt = str(ligne).encode('latin-1', 'replace').decode('latin-1')
-        pdf.cell(0, 6, txt=safe_txt, ln=True, align='R')
+        pdf.set_x(x_right)
+        pdf.cell(80, 5, txt=safe_txt, ln=True, align='R')
     
-    pdf.ln(15) 
-    
-    # 3. TITRE DES PRESTATIONS
-    pdf.set_font("Helvetica", 'B', 14)
-    # Fond Marron avec Opacité 1.0 (car on a reset l'alpha dans header)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_fill_color(93, 64, 55)    
-    
-    pdf.cell(0, 10, " DÉTAIL DES PRESTATIONS ", 0, 1, 'C', fill=True)
-    pdf.ln(5)
-    
-    # 4. LISTE DES PRODUITS
-    pdf.set_font("Helvetica", size=12)
-    pdf.set_text_color(20, 20, 20)
-    
-    # En-tête colonnes
-    pdf.set_font("Helvetica", 'I', 10)
-    pdf.set_text_color(80, 80, 80)
-    pdf.cell(100, 8, "Description", 0, 0, 'L')
-    pdf.cell(30, 8, "Qté", 0, 0, 'C')
-    pdf.cell(0, 8, "Montant", 0, 1, 'R')
-    
-    # Ligne séparation
-    pdf.set_draw_color(180, 180, 180)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(2)
-
-    pdf.set_font("Helvetica", size=11)
+    # --- TITRE THEME (Centré) ---
+    pdf.set_y(pdf.get_y() + 15) # Marge auto
+    pdf.set_font("Times", 'I', 14)
     pdf.set_text_color(0, 0, 0)
-
+    pdf.cell(0, 10, "Détail de la prestation", 0, 1, 'C')
+    
+    # --- LISTE DES PRESTATIONS (Style Liste Épurée) ---
+    pdf.ln(5)
+    pdf.set_font("Helvetica", size=11)
+    pdf.set_text_color(40, 40, 40)
+    
+    # On itère sur le panier
     for _, row in df_panier.iterrows():
         nom = row['Désignation']
         qte = int(row['Qté'])
         prix_u = row['Prix Unit.']
-        total_ligne = prix_u * qte
         
+        # Formatage texte : Point centré
         safe_nom = nom.encode('latin-1', 'replace').decode('latin-1')
+        item_text = f"{safe_nom}"
+        if qte > 1:
+            item_text += f" (x{qte})"
+            
+        # On centre le texte comme sur l'image
+        pdf.cell(0, 7, item_text, 0, 1, 'C')
         
-        pdf.cell(100, 8, f"- {safe_nom}", 0, 0, 'L')
-        pdf.cell(30, 8, f"x {qte}", 0, 0, 'C')
-        pdf.cell(0, 8, f"{total_ligne:.2f} E", 0, 1, 'R')
-        
-    # 5. TOTAL FINAL
-    if pdf.get_y() > 240:
-        pdf.add_page()
+    # --- PRIX TOTAL & MESSAGE FINAL ---
+    pdf.ln(15)
     
-    pdf.set_y(230)
+    # Ligne de séparation courte
+    x_sep = (210 - 50) / 2
+    pdf.set_draw_color(160, 120, 90)
+    pdf.line(x_sep, pdf.get_y(), x_sep + 50, pdf.get_y())
+    pdf.ln(5)
     
-    pdf.set_draw_color(184, 134, 11)
-    pdf.set_line_width(1)
-    pdf.line(120, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(2)
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR", 0, 1, 'C')
     
-    pdf.set_font("Helvetica", 'B', 16)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 12, f"TOTAL TTC : {total_ttc:.2f} EUR", 0, 1, 'R')
+    # Conditions en petit
+    pdf.ln(5)
+    pdf.set_font("Helvetica", size=8)
+    pdf.set_text_color(100, 100, 100)
+    pdf.multi_cell(0, 4, "Conditions : Paiement possible en 2 fois (Acompte 50%).\nAucun remboursement en cas d'annulation moins de 7 jours avant.", 0, 'C')
     
+    # --- MESSAGE "MERCI" (Bas de page, Élégant) ---
+    pdf.set_y(240) # Position fixe vers le bas
+    pdf.set_font("Times", 'I', 22)
+    pdf.set_text_color(180, 150, 120) # Couleur dorée/bronze
+    pdf.cell(0, 10, "MERCI DE VOTRE CONFIANCE", 0, 1, 'C')
+
+    # Nettoyage
     try:
         if bg_path and os.path.exists(bg_path): os.unlink(bg_path)
     except: pass
@@ -212,7 +224,7 @@ c1, c2, c3 = st.columns([1, 1, 1.2])
 
 with c1:
     st.subheader("👤 Infos Client")
-    client_txt = st.text_area("Coordonnées...", height=180, placeholder="Nom du client\nDate\nAdresse complète")
+    client_txt = st.text_area("Coordonnées...", height=180, placeholder="Nom : Khadija\nDate : 08/11/2025\nLieu : Sarcelles")
 
 with c2:
     st.subheader("📝 Commande")
