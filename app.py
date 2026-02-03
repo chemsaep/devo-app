@@ -30,7 +30,9 @@ df_catalogue = st.sidebar.data_editor(df_catalogue, num_rows="dynamic", use_cont
 # --- 2. LOGIQUE PDF AVEC LIEN AUTOMATIQUE AU FOND ---
 class PDF(FPDF):
     def header(self):
-        # LIEN AUTOMATIQUE : Priorité au fichier chargé, sinon utilise fond_devis.png
+        # LIEN AUTOMATIQUE : 
+        # 1. On utilise le fichier chargé manuellement s'il existe
+        # 2. SINON on cherche le fichier "fond_devis.png" à la racine (GitHub)
         if uploaded_bg:
             self.image(uploaded_bg, x=0, y=0, w=210, h=297)
         elif os.path.exists("fond_devis.png"):
@@ -42,7 +44,7 @@ class PDF(FPDF):
         self.set_text_color(139, 115, 85)
         self.cell(0, 10, f"Des événements sur-mesure - {nom_pro}", 0, 1, 'C')
         
-        # Bloc Contact dynamique
+        # Bloc Contact dynamique (Basé sur ton rendu image)
         self.set_y(80); self.set_x(25) 
         self.set_font('Arial', '', 9); self.set_text_color(0, 0, 0)
         self.cell(0, 5, f"Contact : {contact_pro}", 0, 1, 'L')
@@ -58,16 +60,18 @@ def generer_pdf(client_info, df_panier, total_ttc):
     pdf.cell(0, 5, f"Devis {nom_pro} pour :", 0, 1, 'R')
     pdf.set_font("Arial", size=10)
     for ligne in client_info:
+        # Encodage latin-1 pour éviter les bugs de caractères spéciaux sur le serveur
         pdf.cell(0, 5, txt=str(ligne).encode('latin-1', 'replace').decode('latin-1'), ln=True, align='R')
     
-    # Prestations incluses
+    # Prestations incluses (Centre)
     pdf.set_y(135); pdf.set_font("Arial", 'B', 13); pdf.cell(0, 10, "Prestations incluses", 0, 1, 'C')
     pdf.set_font("Arial", size=11)
     for _, row in df_panier.iterrows():
         pdf.set_x(40)
-        pdf.cell(0, 8, f"- {row['Désignation']} (x{int(row['Qté'])})", 0, 1, 'L')
+        designation = str(row['Désignation']).encode('latin-1', 'replace').decode('latin-1')
+        pdf.cell(0, 8, f"- {designation} (x{int(row['Qté'])})", 0, 1, 'L')
 
-    # Total Final
+    # Total Final (Bas Droite)
     pdf.set_y(220); pdf.set_font("Arial", 'B', 13)
     pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR", 0, 1, 'R')
     return pdf.output(dest='S').encode('latin-1', 'replace')
@@ -80,16 +84,19 @@ def analyser_texte(texte, df_cat):
         l = l.strip()
         if not l: continue
         match = re.search(r'(\d+)', l)
+        # Détection des produits selon tes mots-clés habituels
         if match and ("-" in l or any(p in l.lower() for p in ["box", "westaf", "brick", "pastel"])):
             qte = int(match.group(1))
             nom_saisi = re.sub(r'[-\d+]', '', l).strip().lower()
             nom_final, prix = nom_saisi, 0.0
+            # Lien avec ton catalogue.csv chargé dans la sidebar
             for _, row in df_cat.iterrows():
                 if nom_saisi in str(row['Produit']).lower():
                     nom_final, prix = row['Produit'], float(row['Prix'])
                     break
             panier.append({"Désignation": nom_final, "Prix Unit.": prix, "Qté": qte})
-        else: client.append(l)
+        else:
+            client.append(l)
     return client, panier
 
 # --- 4. INTERFACE DE TRAVAIL ---
@@ -114,7 +121,7 @@ with col1:
 with col2:
     st.subheader("2. Finalisation (Modifie ici)")
     if not st.session_state['panier_df'].empty:
-        # Modifie ici : les changements sont gardés en mémoire sans retaper le prompt
+        # Éditeur de tableau : les modifs ici mettent à jour le PDF instantanément
         edited_df = st.data_editor(st.session_state['panier_df'], use_container_width=True, num_rows="dynamic")
         total = (edited_df["Prix Unit."] * edited_df["Qté"]).sum()
         st.markdown(f"### Total : {total:.2f} €")
