@@ -39,9 +39,8 @@ class FusionIA(FPDF):
         self.ext_gstates = [] # Nécessaire pour gérer la transparence
 
     # --- FONCTIONS TECHNIQUES POUR LA TRANSPARENCE (ALPHA) ---
+    # Ces fonctions permettent à FPDF de comprendre la transparence
     def set_alpha(self, alpha, bm='Normal'):
-        # Cette fonction active la transparence
-        # alpha : 0.0 (invisible) à 1.0 (opaque)
         gs = {'ca': alpha, 'CA': alpha, 'BM': '/' + bm}
         self.ext_gstates.append(gs)
         self.set_ext_gstate(len(self.ext_gstates))
@@ -69,25 +68,20 @@ class FusionIA(FPDF):
     # ---------------------------------------------------------
 
     def header(self):
-        # 1. FOND : Image Pleine Page (Toujours Opaque)
+        # 1. FOND : Image Pleine Page (Toujours Opaque au début)
         if self.bg_path and os.path.exists(self.bg_path):
             try:
-                # On remet l'alpha à 1 pour l'image de fond
-                # (au cas où, même si c'est le début)
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
             except: pass
         
-        # 2. CONTENEUR : La "Feuille" avec TRANSPARENCE
-        # On active la transparence à 85% (0.85)
-        # Tu peux changer 0.85 vers 0.70 (plus transparent) ou 0.95 (plus opaque)
-        self.set_alpha(0.85) 
+        # 2. CONTENEUR : La "Feuille" avec TRANSPARENCE CIBLÉE
+        # C'est ici que s'applique ta demande
+        self.set_alpha(0.85) # Le cadre blanc devient semi-transparent (85% opaque)
         
         self.set_fill_color(255, 255, 255)
         self.rect(10, 10, 190, 277, 'F') 
         
-        # IMPORTANT : On remet l'alpha à 1.0 (Opaque) pour le texte !
-        # Sinon le texte sera aussi transparent et difficile à lire.
-        self.set_alpha(1.0)
+        self.set_alpha(1.0)  # On remet en opaque IMMEDIATEMENT pour le texte
 
         # 3. EN-TÊTE DESIGN
         self.set_y(20) 
@@ -99,7 +93,7 @@ class FusionIA(FPDF):
         
         # Slogan
         self.set_font('Helvetica', 'I', 10)
-        self.set_text_color(80, 80, 80) # Gris un peu plus sombre pour contrer la transparence
+        self.set_text_color(80, 80, 80) 
         self.cell(0, 8, "Des événements sur-mesure", 0, 1, 'C')
         
         # Ligne de séparation
