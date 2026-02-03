@@ -4,24 +4,26 @@ import re
 from fpdf import FPDF
 import os
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Devo Pro", layout="wide", page_icon="🥐")
+# --- 1. CONFIGURATION DE L'INTERFACE ---
+st.set_page_config(page_title="Devo Pro - Wassah Event", layout="wide", page_icon="🥐")
 
-# --- BARRE LATÉRALE ---
-st.sidebar.title("⚙️ Personnalisation")
-uploaded_bg = st.sidebar.file_uploader("Changer le Fond", type=["png", "jpg", "jpeg"])
-nom_pro = st.sidebar.text_input("Nom entreprise", "Wassah Event")
-contact_pro = st.sidebar.text_input("Contact", "06.65.62.00.92")
+# Barre latérale pour les réglages rapides
+st.sidebar.title("🎨 Design du Devis")
+uploaded_bg = st.sidebar.file_uploader("Changer l'image de fond", type=["png", "jpg", "jpeg"])
+nom_pro = st.sidebar.text_input("Nom de l'entreprise", "Wassah Event")
 
-# CATALOGUE
+# Chargement du catalogue pour l'ajout rapide
 try:
     df_catalogue = pd.read_csv("catalogue.csv")
 except:
     df_catalogue = pd.DataFrame(columns=["Produit", "Prix"])
 
+# Système de sélection automatique vers le message
+st.sidebar.subheader("🛒 Catalogue Produits")
 selection = st.sidebar.dataframe(df_catalogue, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row")
 
-if 'produits_text' not in st.session_state: st.session_state['produits_text'] = ""
+if 'produits_text' not in st.session_state: 
+    st.session_state['produits_text'] = ""
 
 if selection and selection['selection']['rows']:
     for idx in selection['selection']['rows']:
@@ -29,10 +31,10 @@ if selection and selection['selection']['rows']:
         if p not in st.session_state['produits_text']:
             st.session_state['produits_text'] += f"- 1 {p}\n"
 
-# --- 2. LOGIQUE DE FUSION IMAGE & TEXTE ---
+# --- 2. MOTEUR DE FUSION PDF ---
 class PDF(FPDF):
     def header(self):
-        # CONDITION DE FUSION : On teste les fichiers existants sur GitHub
+        # Fusion intelligente de l'image de fond
         try:
             if uploaded_bg:
                 self.image(uploaded_bg, x=0, y=0, w=210, h=297)
@@ -41,63 +43,76 @@ class PDF(FPDF):
             elif os.path.exists("fond_devis.png"):
                 self.image("fond_devis.png", x=0, y=0, w=210, h=297)
         except Exception:
-            pass # Continue sans image si aucun fichier n'est trouvé
+            pass # Si aucune image, le PDF reste blanc mais fonctionnel
         
-        # Superposition du texte sur l'image
-        self.set_y(55)
-        self.set_font('Arial', 'I', 10)
-        self.set_text_color(139, 115, 85)
+        # En-tête stylisé
+        self.set_y(52)
+        self.set_font('Helvetica', 'I', 10)
+        self.set_text_color(139, 115, 85) # Couleur dorée/marron comme ton logo
         self.cell(0, 10, f"Des événements sur-mesure - {nom_pro}", 0, 1, 'C')
+
+    def footer(self):
+        # Note esthétique en bas
+        self.set_y(-25)
+        self.set_font('Helvetica', 'I', 8)
+        self.set_text_color(150, 150, 150)
+        self.cell(0, 10, "Devis généré numériquement par Wassah Event", 0, 0, 'C')
 
 def generer_pdf(client_info, df_panier, total_ttc):
     pdf = PDF()
-    pdf.add_page() # C'est ici que l'image et le texte fusionnent
+    pdf.add_page()
     
-    # Positionnement des blocs sur le fond
-    pdf.set_y(80)
-    pdf.set_font("Arial", 'B', 10)
-    pdf.set_right_margin(25)
-    pdf.cell(0, 5, f"Devis {nom_pro} pour :", 0, 1, 'R')
+    # 1. Bloc Client - Positionné pour éviter le logo haut-droite
+    pdf.set_y(78)
+    pdf.set_right_margin(22)
+    pdf.set_font("Helvetica", 'B', 11)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 6, "DEVIS PRESTATION", 0, 1, 'R')
     
-    pdf.set_font("Arial", size=10)
-    txt_client = client_info if client_info else "Client"
+    pdf.set_font("Helvetica", size=10)
+    txt_client = client_info if client_info else "Informations Client"
     for ligne in txt_client.split('\n'):
         pdf.cell(0, 5, txt=str(ligne).encode('latin-1', 'replace').decode('latin-1'), ln=True, align='R')
     
-    # Zone des prestations
-    pdf.set_y(135)
-    pdf.set_font("Arial", 'B', 13)
-    pdf.cell(0, 10, "Prestations incluses", 0, 1, 'C')
+    # 2. Tableau des prestations - Centré esthétiquement
+    pdf.set_y(130)
+    pdf.set_font("Helvetica", 'B', 13)
+    pdf.set_text_color(93, 64, 55)
+    pdf.cell(0, 10, "Détail des Prestations", 0, 1, 'C')
+    pdf.ln(5)
     
-    pdf.set_font("Arial", size=11)
+    pdf.set_font("Helvetica", size=11)
     pdf.set_text_color(50, 50, 50)
     for _, row in df_panier.iterrows():
-        pdf.set_x(40)
-        pdf.cell(0, 8, f"- {row['Désignation']} (x{int(row['Qté'])})", 0, 1, 'L')
+        pdf.set_x(35) # Marge gauche pour l'esthétique
+        item = f"- {row['Désignation']} (x{int(row['Qté'])})"
+        pdf.cell(0, 8, txt=item.encode('latin-1', 'replace').decode('latin-1'), ln=True, align='L')
 
-    # Montant total
-    pdf.set_y(220)
-    pdf.set_font("Arial", 'B', 13)
+    # 3. Bloc Total - Mis en valeur en bas
+    pdf.set_y(225)
+    pdf.set_font("Helvetica", 'B', 14)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR", 0, 1, 'R')
+    pdf.cell(0, 10, f"TOTAL TTC : {total_ttc:.2f} EUR  ", 0, 1, 'R')
     
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
-# --- 3. INTERFACE UTILISATEUR ---
+# --- 3. INTERFACE UTILISATEUR EN 3 COLONNES ---
 st.title(f"🥐 Devo : {nom_pro}")
+
 if 'panier_df' not in st.session_state: 
     st.session_state['panier_df'] = pd.DataFrame(columns=["Désignation", "Prix Unit.", "Qté"])
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.subheader("1. Infos Client")
-    client_txt = st.text_area("Coordonnées...", height=150)
+c1, c2, c3 = st.columns([1, 1, 1.2]) # Ajustement des largeurs pour plus de confort
 
-with col2:
-    st.subheader("2. Commande")
-    prod_txt = st.text_area("Produits :", value=st.session_state['produits_text'], height=150)
+with c1:
+    st.subheader("👤 Infos Client")
+    client_txt = st.text_area("Coordonnées...", height=180, placeholder="Nom du client\nDate de l'événement\nLieu de prestation")
+
+with c2:
+    st.subheader("📝 Commande")
+    prod_txt = st.text_area("Sélection produits :", value=st.session_state['produits_text'], height=180)
     st.session_state['produits_text'] = prod_txt
-    if st.button("✨ Analyser"):
+    if st.button("✨ Analyser la commande", use_container_width=True):
         lignes = prod_txt.split('\n')
         panier = []
         for l in lignes:
@@ -113,12 +128,14 @@ with col2:
         st.session_state['panier_df'] = pd.DataFrame(panier)
         st.rerun()
 
-with col3:
-    st.subheader("3. Résultat")
+with c3:
+    st.subheader("📊 Devis Final")
     if not st.session_state['panier_df'].empty:
         edited_df = st.data_editor(st.session_state['panier_df'], use_container_width=True, num_rows="dynamic")
         total = (edited_df["Prix Unit."] * edited_df["Qté"]).sum()
-        st.markdown(f"### Total : {total:.2f} €")
+        st.info(f"Montant Total : **{total:.2f} €**")
         
         pdf_bytes = generer_pdf(client_txt, edited_df, total)
-        st.download_button("📩 Télécharger le PDF", pdf_bytes, "devis.pdf", "application/pdf", use_container_width=True)
+        st.download_button("📩 Télécharger mon Devis Design", pdf_bytes, "devis_wassah.pdf", "application/pdf", use_container_width=True)
+    else:
+        st.warning("Coche des produits dans le catalogue à gauche 👈")
