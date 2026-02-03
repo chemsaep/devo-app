@@ -73,24 +73,25 @@ class FusionIA(FPDF):
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
             except: pass
         
-        # 2. CALQUE BLANC SEMI-TRANSPARENT (Cadre central)
-        # 0.85 est un bon équilibre (visible mais transparent)
-        self.set_alpha(0.85) 
+        # 2. CALQUE BLANC TRES TRANSPARENT
+        # REGLAGE DU NIVEAU DE TRANSPARENCE ICI
+        self.set_alpha(0.65) # <--- J'ai mis 0.65 pour que ce soit bien transparent
+        
         self.set_fill_color(255, 255, 255) # Blanc pur
-        # Marge de 15mm sur les côtés pour laisser voir l'image en "bordure"
+        # Marge de 15mm sur les côtés
         self.rect(15, 15, 180, 267, 'F') 
+        
         self.set_alpha(1.0) # Retour à l'opaque pour le texte
 
         # 3. TITRE "DEVIS" (Style Élégant)
         self.set_y(25) 
-        self.set_font('Times', '', 45) # Police Serif Élégante, très grande
-        self.set_text_color(160, 120, 90) # Couleur "Bronze/Or Doré" (RGB)
-        # On espace les lettres manuellement en ajoutant des espaces dans le texte
+        self.set_font('Times', '', 45) # Police Serif Élégante
+        self.set_text_color(160, 120, 90) # Couleur Bronze/Or
         self.cell(0, 15, "D E V I S", 0, 1, 'C')
         
         # Sous-titre
         self.set_font('Times', 'I', 14)
-        self.set_text_color(180, 150, 120) 
+        self.set_text_color(100, 80, 60) # Un peu plus foncé pour rester lisible sur la transparence
         self.cell(0, 10, "Wassah Event - Des événements sur-mesure", 0, 1, 'C')
         
         # Ligne de séparation fine dorée
@@ -100,11 +101,10 @@ class FusionIA(FPDF):
         self.ln(10)
 
     def footer(self):
-        # Le footer est géré dans le corps principal pour le "Merci", 
-        # ici juste les petits textes légaux
+        # Le footer est géré dans le corps principal
         self.set_y(-20)
         self.set_font('Helvetica', 'I', 7)
-        self.set_text_color(150, 150, 150)
+        self.set_text_color(80, 80, 80)
         self.cell(0, 10, "Document généré par Devo Pro", 0, 0, 'C')
 
 # Fonction de génération
@@ -123,32 +123,31 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     
     # --- MISE EN PAGE CONTENU ---
     
-    # Position de départ après le header
     y_start = 65 
     pdf.set_y(y_start)
     
-    # --- BLOC DOUBLE COLONNE (Gauche: Contact Wassah / Droite: Client) ---
+    # --- BLOC DOUBLE COLONNE ---
     pdf.set_font("Helvetica", size=10)
-    pdf.set_text_color(60, 60, 60)
+    pdf.set_text_color(20, 20, 20) # Texte quasi noir pour bien lire sur la transparence
     
-    # COLONNE GAUCHE (Tes infos fixes)
+    # COLONNE GAUCHE (Tes infos)
     x_left = 25
     pdf.set_xy(x_left, y_start)
     pdf.set_font("Helvetica", 'B', 10)
     pdf.cell(80, 5, "Contact :", 0, 1)
     pdf.set_font("Helvetica", size=10)
     pdf.set_x(x_left)
-    pdf.cell(80, 5, "Tel : 06.65.62.00.92", 0, 1) # Exemple (à modifier)
+    pdf.cell(80, 5, "Tel : 06.65.62.00.92", 0, 1)
     pdf.set_x(x_left)
     pdf.cell(80, 5, "Insta : @wassah.event", 0, 1)
     pdf.set_x(x_left)
     pdf.cell(80, 5, "Lieu : Île-de-France", 0, 1)
 
-    # COLONNE DROITE (Infos Client dynamiques)
+    # COLONNE DROITE (Infos Client)
     x_right = 110
     pdf.set_xy(x_right, y_start)
     pdf.set_font("Helvetica", 'B', 10)
-    pdf.cell(80, 5, "Devis pour :", 0, 1, 'R') # Align Right
+    pdf.cell(80, 5, "Devis pour :", 0, 1, 'R')
     
     pdf.set_font("Helvetica", size=10)
     txt_client = info_client if info_client else "Client Inconnu"
@@ -157,36 +156,31 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
         pdf.set_x(x_right)
         pdf.cell(80, 5, txt=safe_txt, ln=True, align='R')
     
-    # --- TITRE THEME (Centré) ---
-    pdf.set_y(pdf.get_y() + 15) # Marge auto
+    # --- TITRE THEME ---
+    pdf.set_y(pdf.get_y() + 15)
     pdf.set_font("Times", 'I', 14)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, "Détail de la prestation", 0, 1, 'C')
     
-    # --- LISTE DES PRESTATIONS (Style Liste Épurée) ---
+    # --- LISTE DES PRESTATIONS ---
     pdf.ln(5)
     pdf.set_font("Helvetica", size=11)
-    pdf.set_text_color(40, 40, 40)
+    pdf.set_text_color(10, 10, 10) # Noir
     
-    # On itère sur le panier
     for _, row in df_panier.iterrows():
         nom = row['Désignation']
         qte = int(row['Qté'])
-        prix_u = row['Prix Unit.']
         
-        # Formatage texte : Point centré
         safe_nom = nom.encode('latin-1', 'replace').decode('latin-1')
         item_text = f"{safe_nom}"
         if qte > 1:
             item_text += f" (x{qte})"
             
-        # On centre le texte comme sur l'image
         pdf.cell(0, 7, item_text, 0, 1, 'C')
         
-    # --- PRIX TOTAL & MESSAGE FINAL ---
+    # --- PRIX TOTAL ---
     pdf.ln(15)
     
-    # Ligne de séparation courte
     x_sep = (210 - 50) / 2
     pdf.set_draw_color(160, 120, 90)
     pdf.line(x_sep, pdf.get_y(), x_sep + 50, pdf.get_y())
@@ -195,19 +189,18 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf.set_font("Helvetica", 'B', 12)
     pdf.cell(0, 10, f"Tarif total : {total_ttc:.2f} EUR", 0, 1, 'C')
     
-    # Conditions en petit
+    # Conditions
     pdf.ln(5)
     pdf.set_font("Helvetica", size=8)
-    pdf.set_text_color(100, 100, 100)
+    pdf.set_text_color(80, 80, 80)
     pdf.multi_cell(0, 4, "Conditions : Paiement possible en 2 fois (Acompte 50%).\nAucun remboursement en cas d'annulation moins de 7 jours avant.", 0, 'C')
     
-    # --- MESSAGE "MERCI" (Bas de page, Élégant) ---
-    pdf.set_y(240) # Position fixe vers le bas
+    # --- MERCI (Bas de page) ---
+    pdf.set_y(240)
     pdf.set_font("Times", 'I', 22)
-    pdf.set_text_color(180, 150, 120) # Couleur dorée/bronze
+    pdf.set_text_color(180, 150, 120)
     pdf.cell(0, 10, "MERCI DE VOTRE CONFIANCE", 0, 1, 'C')
 
-    # Nettoyage
     try:
         if bg_path and os.path.exists(bg_path): os.unlink(bg_path)
     except: pass
