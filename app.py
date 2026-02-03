@@ -31,54 +31,91 @@ if selection and selection['selection']['rows']:
         if p not in st.session_state['produits_text']:
             st.session_state['produits_text'] += f"- 1 {p}\n"
 
-# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE INTELLIGENT) ---
+# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE AVEC TRANSPARENCE) ---
 class FusionIA(FPDF):
     def __init__(self, bg_path=None):
         super().__init__()
         self.bg_path = bg_path
+        self.ext_gstates = [] # Nécessaire pour gérer la transparence
+
+    # --- FONCTIONS TECHNIQUES POUR LA TRANSPARENCE (ALPHA) ---
+    def set_alpha(self, alpha, bm='Normal'):
+        # Cette fonction active la transparence
+        # alpha : 0.0 (invisible) à 1.0 (opaque)
+        gs = {'ca': alpha, 'CA': alpha, 'BM': '/' + bm}
+        self.ext_gstates.append(gs)
+        self.set_ext_gstate(len(self.ext_gstates))
+
+    def set_ext_gstate(self, n):
+        self._out(f'/GS{n} gs')
+
+    def _putextgstates(self):
+        for i, gs in enumerate(self.ext_gstates):
+            self._newobj()
+            self._out('<</Type /ExtGState')
+            for k, v in gs.items():
+                self._out(f'/{k} {v}')
+            self._out('>>')
+            self._out('endobj')
+
+    def _putresources(self):
+        self._putextgstates()
+        super()._putresources()
+        if self.ext_gstates:
+            self._out('/ExtGState <<')
+            for i in range(1, len(self.ext_gstates) + 1):
+                self._out(f'/GS{i} {self.n - len(self.ext_gstates) + i - 1} 0 R')
+            self._out('>>')
+    # ---------------------------------------------------------
 
     def header(self):
-        # 1. FOND : Image Pleine Page
+        # 1. FOND : Image Pleine Page (Toujours Opaque)
         if self.bg_path and os.path.exists(self.bg_path):
             try:
+                # On remet l'alpha à 1 pour l'image de fond
+                # (au cas où, même si c'est le début)
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
             except: pass
         
-        # 2. CONTENEUR : La "Feuille de Papier" Centrale
-        # C'est l'intelligence visuelle : on crée une zone blanche propre au centre
-        # Marge de 10mm sur les côtés, transparence 0 (blanc pur)
+        # 2. CONTENEUR : La "Feuille" avec TRANSPARENCE
+        # On active la transparence à 85% (0.85)
+        # Tu peux changer 0.85 vers 0.70 (plus transparent) ou 0.95 (plus opaque)
+        self.set_alpha(0.85) 
+        
         self.set_fill_color(255, 255, 255)
         self.rect(10, 10, 190, 277, 'F') 
+        
+        # IMPORTANT : On remet l'alpha à 1.0 (Opaque) pour le texte !
+        # Sinon le texte sera aussi transparent et difficile à lire.
+        self.set_alpha(1.0)
 
         # 3. EN-TÊTE DESIGN
-        self.set_y(20) # Marge haut interne
+        self.set_y(20) 
         
-        # Logo (simulé par un texte stylé si pas de logo image)
+        # Titre Principal
         self.set_font('Helvetica', 'B', 24)
-        self.set_text_color(184, 134, 11) # Couleur "Dark Golden Rod" (Or foncé)
+        self.set_text_color(184, 134, 11) # Or foncé
         self.cell(0, 10, "WASSAH EVENT", 0, 1, 'C')
         
-        # Slogan sans collision
+        # Slogan
         self.set_font('Helvetica', 'I', 10)
-        self.set_text_color(100, 100, 100) # Gris doux
+        self.set_text_color(80, 80, 80) # Gris un peu plus sombre pour contrer la transparence
         self.cell(0, 8, "Des événements sur-mesure", 0, 1, 'C')
         
-        # Ligne de séparation élégante
+        # Ligne de séparation
         self.set_draw_color(184, 134, 11)
         self.set_line_width(0.5)
-        # Ligne centrée de 100mm de large
         x_line = (210 - 100) / 2
         self.line(x_line, self.get_y()+2, x_line + 100, self.get_y()+2)
-        self.ln(10) # Saut de ligne de sécurité
+        self.ln(10)
 
     def footer(self):
-        # Pied de page sur la "feuille blanche"
         self.set_y(-25)
         self.set_font('Helvetica', 'I', 8)
-        self.set_text_color(150, 150, 150)
+        self.set_text_color(100, 100, 100)
         self.cell(0, 10, "Devis généré par Devo Pro - Document confidentiel", 0, 0, 'C')
 
-# Fonction de génération INTELLIGENTE
+# Fonction de génération
 def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     bg_path = None
     if uploaded_bg_file:
@@ -92,54 +129,46 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf = FusionIA(bg_path=bg_path)
     pdf.add_page()
     
-    # --- INTELLIGENCE DE FLUX ---
-    # On ne force plus les Y (set_y). On laisse couler le texte.
-    
     # 1. Bloc TITRE DU DOCUMENT
-    pdf.set_y(50) # On force juste le début sous le header
+    pdf.set_y(50)
     pdf.set_font("Helvetica", 'B', 16)
-    pdf.set_text_color(50, 50, 50) # Gris anthracite (très lisible)
+    pdf.set_text_color(40, 40, 40) 
     pdf.cell(0, 10, "DEVIS PRESTATION", 0, 1, 'R')
     pdf.ln(2)
 
-    # 2. Bloc INFO CLIENT (Aligné à droite)
+    # 2. Bloc INFO CLIENT
     pdf.set_font("Helvetica", size=11)
-    pdf.set_text_color(0, 0, 0) # Noir pur pour les infos importantes
+    pdf.set_text_color(0, 0, 0)
     
     txt_client = info_client if info_client else "Client Inconnu"
-    # On split le texte pour l'afficher ligne par ligne proprement
     for ligne in txt_client.split('\n'):
         safe_txt = str(ligne).encode('latin-1', 'replace').decode('latin-1')
         pdf.cell(0, 6, txt=safe_txt, ln=True, align='R')
     
-    # ESPACE AUTOMATIQUE (Saut de ligne dynamique)
     pdf.ln(15) 
     
-    # 3. TITRE DES PRESTATIONS (Centré)
-    # On récupère la position actuelle Y pour dessiner un fond de titre
-    y_before = pdf.get_y()
-    
+    # 3. TITRE DES PRESTATIONS
     pdf.set_font("Helvetica", 'B', 14)
-    pdf.set_text_color(255, 255, 255) # Texte blanc
-    pdf.set_fill_color(93, 64, 55)    # Fond Marron Chocolat
+    # Fond Marron avec Opacité 1.0 (car on a reset l'alpha dans header)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_fill_color(93, 64, 55)    
     
-    # Titre "Banner"
     pdf.cell(0, 10, " DÉTAIL DES PRESTATIONS ", 0, 1, 'C', fill=True)
     pdf.ln(5)
     
-    # 4. LISTE DES PRODUITS (Tableau propre)
+    # 4. LISTE DES PRODUITS
     pdf.set_font("Helvetica", size=12)
-    pdf.set_text_color(40, 40, 40)
+    pdf.set_text_color(20, 20, 20)
     
-    # En-tête de colonnes (optionnel mais propre)
+    # En-tête colonnes
     pdf.set_font("Helvetica", 'I', 10)
-    pdf.set_text_color(100, 100, 100)
+    pdf.set_text_color(80, 80, 80)
     pdf.cell(100, 8, "Description", 0, 0, 'L')
     pdf.cell(30, 8, "Qté", 0, 0, 'C')
     pdf.cell(0, 8, "Montant", 0, 1, 'R')
     
-    # Ligne de séparation fine
-    pdf.set_draw_color(200, 200, 200)
+    # Ligne séparation
+    pdf.set_draw_color(180, 180, 180)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(2)
 
@@ -147,8 +176,6 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf.set_text_color(0, 0, 0)
 
     for _, row in df_panier.iterrows():
-        # Intelligence : Alternance de couleur de fond (Zebra striping) optionnelle
-        # Ici on reste simple et clean
         nom = row['Désignation']
         qte = int(row['Qté'])
         prix_u = row['Prix Unit.']
@@ -156,19 +183,16 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
         
         safe_nom = nom.encode('latin-1', 'replace').decode('latin-1')
         
-        # Cellules
         pdf.cell(100, 8, f"- {safe_nom}", 0, 0, 'L')
         pdf.cell(30, 8, f"x {qte}", 0, 0, 'C')
         pdf.cell(0, 8, f"{total_ligne:.2f} E", 0, 1, 'R')
         
-    # 5. TOTAL FINAL (Bas de page intelligent)
-    # On regarde s'il reste de la place, sinon on ajoute une page
+    # 5. TOTAL FINAL
     if pdf.get_y() > 240:
         pdf.add_page()
     
-    pdf.set_y(230) # On fixe le total vers le bas pour l'esthétique
+    pdf.set_y(230)
     
-    # Ligne dorée au dessus du total
     pdf.set_draw_color(184, 134, 11)
     pdf.set_line_width(1)
     pdf.line(120, pdf.get_y(), 200, pdf.get_y())
