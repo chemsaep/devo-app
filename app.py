@@ -37,9 +37,12 @@ class FusionIA(FPDF):
         super().__init__()
         self.bg_path = bg_path
         self.ext_gstates = [] 
+        # !!! CORRECTION CRUCIALE ICI !!!
+        self.pdf_version = '1.4'  # Force la version PDF qui supporte la transparence
 
-    # --- FONCTIONS TECHNIQUES TRANSPARENCE (NE PAS TOUCHER) ---
+    # --- FONCTIONS TECHNIQUES TRANSPARENCE ---
     def set_alpha(self, alpha, bm='Normal'):
+        # alpha: 0.0 (transparent) à 1.0 (opaque)
         gs = {'ca': alpha, 'CA': alpha, 'BM': '/' + bm}
         self.ext_gstates.append(gs)
         self.set_ext_gstate(len(self.ext_gstates))
@@ -70,21 +73,20 @@ class FusionIA(FPDF):
         # 1. FOND IMAGE
         if self.bg_path and os.path.exists(self.bg_path):
             try:
+                # L'image est placée normalement (opaque)
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
             except: pass
         
         # 2. CALQUE BLANC ULTRA TRANSPARENT
-        # C'est ici le réglage magique.
-        # 1.0 = Blanc total (opaque)
-        # 0.0 = Invisible
-        # 0.40 = Le réglage parfait pour voir l'image derrière (comme ta photo)
-        self.set_alpha(0.40) 
+        # On active la transparence
+        self.set_alpha(0.40) # 40% de blanc seulement (donc 60% transparent)
         
         self.set_fill_color(255, 255, 255) # Blanc
         # Marge de 15mm sur les côtés
         self.rect(15, 15, 180, 267, 'F') 
         
-        self.set_alpha(1.0) # On remet en opaque pour que le TEXTE soit lisible
+        # IMPORTANT : On remet l'opacité à 100% pour le texte qui suit
+        self.set_alpha(1.0) 
 
         # 3. TITRE "DEVIS" (Style Élégant)
         self.set_y(25) 
@@ -94,8 +96,7 @@ class FusionIA(FPDF):
         
         # Sous-titre
         self.set_font('Times', 'I', 14)
-        # On fonce un peu le texte car le fond est plus transparent (meilleur contraste)
-        self.set_text_color(50, 40, 30) 
+        self.set_text_color(20, 20, 20) # Noir/Gris très foncé pour lisibilité
         self.cell(0, 10, "Wassah Event - Des événements sur-mesure", 0, 1, 'C')
         
         # Ligne de séparation
@@ -125,14 +126,12 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf.add_page()
     
     # --- MISE EN PAGE CONTENU ---
-    
     y_start = 65 
     pdf.set_y(y_start)
     
     # --- BLOC DOUBLE COLONNE ---
-    # Texte bien noir pour contraster avec l'image de fond visible
     pdf.set_font("Helvetica", size=10)
-    pdf.set_text_color(10, 10, 10) 
+    pdf.set_text_color(0, 0, 0) # Texte NOIR pur
     
     # COLONNE GAUCHE (Tes infos)
     x_left = 25
@@ -163,13 +162,13 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     # --- TITRE THEME ---
     pdf.set_y(pdf.get_y() + 15)
     pdf.set_font("Times", 'I', 14)
-    pdf.set_text_color(0, 0, 0) # Noir pur
+    pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, "Détail de la prestation", 0, 1, 'C')
     
     # --- LISTE DES PRESTATIONS ---
     pdf.ln(5)
     pdf.set_font("Helvetica", size=11)
-    pdf.set_text_color(0, 0, 0) # Noir pur
+    pdf.set_text_color(0, 0, 0)
     
     for _, row in df_panier.iterrows():
         nom = row['Désignation']
@@ -196,7 +195,7 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     # Conditions
     pdf.ln(5)
     pdf.set_font("Helvetica", size=8)
-    pdf.set_text_color(60, 60, 60)
+    pdf.set_text_color(50, 50, 50)
     pdf.multi_cell(0, 4, "Conditions : Paiement possible en 2 fois (Acompte 50%).\nAucun remboursement en cas d'annulation moins de 7 jours avant.", 0, 'C')
     
     # --- MERCI (Bas de page) ---
