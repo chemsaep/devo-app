@@ -12,13 +12,13 @@ st.set_page_config(page_title="Devo Pro - IA Fusion", layout="wide", page_icon="
 st.sidebar.title("🎨 IA de Mise en Page")
 uploaded_bg = st.sidebar.file_uploader("Image de fond personnalisée", type=["png", "jpg", "jpeg"])
 
-# Chargement du catalogue pour l'IA d'analyse
+# Chargement du catalogue
 try:
     df_catalogue = pd.read_csv("catalogue.csv")
 except:
     df_catalogue = pd.DataFrame(columns=["Produit", "Prix"])
 
-# Sélection rapide vers le message de commande
+# Sélection rapide
 st.sidebar.subheader("🛒 Produits Disponibles")
 selection = st.sidebar.dataframe(df_catalogue, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row")
 
@@ -31,107 +31,156 @@ if selection and selection['selection']['rows']:
         if p not in st.session_state['produits_text']:
             st.session_state['produits_text'] += f"- 1 {p}\n"
 
-# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE AMÉLIORÉ) ---
+# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE INTELLIGENT) ---
 class FusionIA(FPDF):
     def __init__(self, bg_path=None):
         super().__init__()
         self.bg_path = bg_path
 
     def header(self):
-        # 1. Fusion de l'image de fond (si elle existe)
+        # 1. FOND : Image Pleine Page
         if self.bg_path and os.path.exists(self.bg_path):
-            # L'image prend toute la page
             try:
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
-            except Exception as e:
-                pass # Si l'image est corrompue, on continue sans fond pour ne pas crasher
-            
-        # 2. Slogan esthétique
-        self.set_y(52)
+            except: pass
+        
+        # 2. CONTENEUR : La "Feuille de Papier" Centrale
+        # C'est l'intelligence visuelle : on crée une zone blanche propre au centre
+        # Marge de 10mm sur les côtés, transparence 0 (blanc pur)
+        self.set_fill_color(255, 255, 255)
+        self.rect(10, 10, 190, 277, 'F') 
+
+        # 3. EN-TÊTE DESIGN
+        self.set_y(20) # Marge haut interne
+        
+        # Logo (simulé par un texte stylé si pas de logo image)
+        self.set_font('Helvetica', 'B', 24)
+        self.set_text_color(184, 134, 11) # Couleur "Dark Golden Rod" (Or foncé)
+        self.cell(0, 10, "WASSAH EVENT", 0, 1, 'C')
+        
+        # Slogan sans collision
         self.set_font('Helvetica', 'I', 10)
-        self.set_text_color(139, 115, 85) 
-        self.cell(0, 10, "Des événements sur-mesure - Wassah Event", 0, 1, 'C')
+        self.set_text_color(100, 100, 100) # Gris doux
+        self.cell(0, 8, "Des événements sur-mesure", 0, 1, 'C')
+        
+        # Ligne de séparation élégante
+        self.set_draw_color(184, 134, 11)
+        self.set_line_width(0.5)
+        # Ligne centrée de 100mm de large
+        x_line = (210 - 100) / 2
+        self.line(x_line, self.get_y()+2, x_line + 100, self.get_y()+2)
+        self.ln(10) # Saut de ligne de sécurité
 
     def footer(self):
-        self.set_y(-20)
+        # Pied de page sur la "feuille blanche"
+        self.set_y(-25)
         self.set_font('Helvetica', 'I', 8)
-        self.set_text_color(128, 128, 128) # Gris moyen
-        self.cell(0, 10, "Document fusionné intelligemment par l'IA Devo Pro", 0, 0, 'C')
+        self.set_text_color(150, 150, 150)
+        self.cell(0, 10, "Devis généré par Devo Pro - Document confidentiel", 0, 0, 'C')
 
-# Fonction de génération mise à jour (CORRECTION ERREUR PNG/JPG)
+# Fonction de génération INTELLIGENTE
 def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
-    # Gestion du fichier temporaire pour l'image de fond
     bg_path = None
-    
     if uploaded_bg_file:
-        # CORRECTION ICI : On récupère l'extension du fichier original (.jpg ou .png)
-        # au lieu de forcer .png
         file_ext = os.path.splitext(uploaded_bg_file.name)[1].lower()
-        if not file_ext:
-            file_ext = ".png" # Par sécurité
-
-        # On crée le fichier temporaire avec la bonne extension
+        if not file_ext: file_ext = ".png"
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
-            uploaded_bg_file.seek(0) # On remet le curseur au début du fichier
+            uploaded_bg_file.seek(0)
             temp_file.write(uploaded_bg_file.read())
             bg_path = temp_file.name
     
-    # Initialisation du PDF avec le chemin de l'image
     pdf = FusionIA(bg_path=bg_path)
     pdf.add_page()
     
-    # --- BLOC CONTENU AVEC EFFET "CARTE" ---
-    pdf.set_fill_color(255, 255, 255)
+    # --- INTELLIGENCE DE FLUX ---
+    # On ne force plus les Y (set_y). On laisse couler le texte.
     
-    # Positionnement IA : Bloc Coordonnées Client
-    pdf.set_y(78)
-    pdf.set_right_margin(22)
-    pdf.set_font("Helvetica", 'B', 11)
-    pdf.set_text_color(0, 0, 0)
+    # 1. Bloc TITRE DU DOCUMENT
+    pdf.set_y(50) # On force juste le début sous le header
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.set_text_color(50, 50, 50) # Gris anthracite (très lisible)
+    pdf.cell(0, 10, "DEVIS PRESTATION", 0, 1, 'R')
+    pdf.ln(2)
+
+    # 2. Bloc INFO CLIENT (Aligné à droite)
+    pdf.set_font("Helvetica", size=11)
+    pdf.set_text_color(0, 0, 0) # Noir pur pour les infos importantes
     
-    pdf.cell(0, 6, "DEVIS PRESTATION", 0, 1, 'R')
-    
-    pdf.set_font("Helvetica", size=10)
-    txt_client = info_client if info_client else "Informations Client"
+    txt_client = info_client if info_client else "Client Inconnu"
+    # On split le texte pour l'afficher ligne par ligne proprement
     for ligne in txt_client.split('\n'):
         safe_txt = str(ligne).encode('latin-1', 'replace').decode('latin-1')
-        pdf.cell(0, 5, txt=safe_txt, ln=True, align='R')
+        pdf.cell(0, 6, txt=safe_txt, ln=True, align='R')
     
-    # Positionnement IA : Zone de Détails (Centre)
-    pdf.set_y(130)
+    # ESPACE AUTOMATIQUE (Saut de ligne dynamique)
+    pdf.ln(15) 
     
-    # TITRE DU DETAIL
-    pdf.set_font("Helvetica", 'B', 13)
-    pdf.set_text_color(93, 64, 55) 
-    pdf.cell(0, 10, "Détail des Prestations", 0, 1, 'C')
+    # 3. TITRE DES PRESTATIONS (Centré)
+    # On récupère la position actuelle Y pour dessiner un fond de titre
+    y_before = pdf.get_y()
+    
+    pdf.set_font("Helvetica", 'B', 14)
+    pdf.set_text_color(255, 255, 255) # Texte blanc
+    pdf.set_fill_color(93, 64, 55)    # Fond Marron Chocolat
+    
+    # Titre "Banner"
+    pdf.cell(0, 10, " DÉTAIL DES PRESTATIONS ", 0, 1, 'C', fill=True)
     pdf.ln(5)
     
-    # LISTE DES PRODUITS
-    pdf.set_font("Helvetica", size=11)
-    pdf.set_text_color(20, 20, 20)
+    # 4. LISTE DES PRODUITS (Tableau propre)
+    pdf.set_font("Helvetica", size=12)
+    pdf.set_text_color(40, 40, 40)
     
-    for _, row in df_panier.iterrows():
-        pdf.set_x(35) 
-        item = f"- {row['Désignation']} (x{int(row['Qté'])})"
-        safe_item = item.encode('latin-1', 'replace').decode('latin-1')
-        pdf.cell(0, 8, txt=safe_item, ln=True, align='L', fill=False) 
+    # En-tête de colonnes (optionnel mais propre)
+    pdf.set_font("Helvetica", 'I', 10)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(100, 8, "Description", 0, 0, 'L')
+    pdf.cell(30, 8, "Qté", 0, 0, 'C')
+    pdf.cell(0, 8, "Montant", 0, 1, 'R')
+    
+    # Ligne de séparation fine
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(2)
 
-    # Bloc Final : Total mis en valeur
-    pdf.set_y(225)
-    pdf.set_font("Helvetica", 'B', 14)
+    pdf.set_font("Helvetica", size=11)
     pdf.set_text_color(0, 0, 0)
+
+    for _, row in df_panier.iterrows():
+        # Intelligence : Alternance de couleur de fond (Zebra striping) optionnelle
+        # Ici on reste simple et clean
+        nom = row['Désignation']
+        qte = int(row['Qté'])
+        prix_u = row['Prix Unit.']
+        total_ligne = prix_u * qte
+        
+        safe_nom = nom.encode('latin-1', 'replace').decode('latin-1')
+        
+        # Cellules
+        pdf.cell(100, 8, f"- {safe_nom}", 0, 0, 'L')
+        pdf.cell(30, 8, f"x {qte}", 0, 0, 'C')
+        pdf.cell(0, 8, f"{total_ligne:.2f} E", 0, 1, 'R')
+        
+    # 5. TOTAL FINAL (Bas de page intelligent)
+    # On regarde s'il reste de la place, sinon on ajoute une page
+    if pdf.get_y() > 240:
+        pdf.add_page()
     
-    pdf.set_fill_color(255, 255, 255)
-    pdf.cell(0, 10, f"TOTAL TTC : {total_ttc:.2f} EUR  ", 0, 1, 'R', fill=True)
+    pdf.set_y(230) # On fixe le total vers le bas pour l'esthétique
     
-    # Nettoyage du fichier temporaire
-    # Note : sous Windows, unlink peut parfois échouer si le fichier est encore "tenu" par le process
-    # On met un try/pass pour ne pas bloquer l'app
+    # Ligne dorée au dessus du total
+    pdf.set_draw_color(184, 134, 11)
+    pdf.set_line_width(1)
+    pdf.line(120, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(2)
+    
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 12, f"TOTAL TTC : {total_ttc:.2f} EUR", 0, 1, 'R')
+    
     try:
-        if bg_path and os.path.exists(bg_path):
-            os.unlink(bg_path)
-    except:
-        pass
+        if bg_path and os.path.exists(bg_path): os.unlink(bg_path)
+    except: pass
     
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
@@ -141,18 +190,17 @@ st.title("🥐 Devo : Wassah Event")
 if 'panier_df' not in st.session_state: 
     st.session_state['panier_df'] = pd.DataFrame(columns=["Désignation", "Prix Unit.", "Qté"])
 
-# Création des 3 colonnes de travail
 c1, c2, c3 = st.columns([1, 1, 1.2])
 
 with c1:
     st.subheader("👤 Infos Client")
-    client_txt = st.text_area("Coordonnées...", height=180, placeholder="Nom du client\nDate\nAdresse/Lieu")
+    client_txt = st.text_area("Coordonnées...", height=180, placeholder="Nom du client\nDate\nAdresse complète")
 
 with c2:
     st.subheader("📝 Commande")
-    prod_txt = st.text_area("Produits sélectionnés :", value=st.session_state['produits_text'], height=180)
+    prod_txt = st.text_area("Produits (IA Detect)", value=st.session_state['produits_text'], height=180)
     st.session_state['produits_text'] = prod_txt
-    if st.button("✨ Analyser la commande", use_container_width=True):
+    if st.button("✨ Analyser", use_container_width=True):
         lignes = prod_txt.split('\n')
         panier = []
         for l in lignes:
@@ -171,12 +219,9 @@ with c2:
 with c3:
     st.subheader("📊 Devis Final")
     if not st.session_state['panier_df'].empty:
-        # Éditeur intelligent de tableau
         ed_df = st.data_editor(st.session_state['panier_df'], use_container_width=True, num_rows="dynamic")
         tot = (ed_df["Prix Unit."] * ed_df["Qté"]).sum()
-        st.info(f"Montant Total calculé : **{tot:.2f} €**")
+        st.info(f"Total: **{tot:.2f} €**")
         
-        # Bouton de fusion IA
         pdf_bytes = generer_rendu_ia(client_txt, ed_df, tot, uploaded_bg)
-        
-        st.download_button("📩 Télécharger le PDF Fusionné", pdf_bytes, "devis_wassah.pdf", "application/pdf", use_container_width=True)
+        st.download_button("📩 Télécharger PDF", pdf_bytes, "devis_pro.pdf", "application/pdf", use_container_width=True)
