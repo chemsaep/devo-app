@@ -4,6 +4,7 @@ import re
 from fpdf import FPDF
 import tempfile
 import os
+from PIL import Image, ImageDraw # NOUVEAU : Pour gérer l'image directement
 
 # --- 1. CONFIGURATION DU MOTEUR ---
 st.set_page_config(page_title="Devo Pro - IA Fusion", layout="wide", page_icon="🥐")
@@ -31,62 +32,22 @@ if selection and selection['selection']['rows']:
         if p not in st.session_state['produits_text']:
             st.session_state['produits_text'] += f"- 1 {p}\n"
 
-# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE GRIS TRANSPARENT) ---
+# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE SIMPLIFIÉ ET INFAILLIBLE) ---
 class FusionIA(FPDF):
     def __init__(self, bg_path=None):
         super().__init__()
         self.bg_path = bg_path
-        self.ext_gstates = [] 
-        # Force la version PDF 1.4 pour supporter la transparence
-        self.pdf_version = '1.4' 
-
-    # --- FONCTIONS TECHNIQUES TRANSPARENCE ---
-    def set_alpha(self, alpha, bm='Normal'):
-        gs = {'ca': alpha, 'CA': alpha, 'BM': '/' + bm}
-        self.ext_gstates.append(gs)
-        self.set_ext_gstate(len(self.ext_gstates))
-
-    def set_ext_gstate(self, n):
-        self._out(f'/GS{n} gs')
-
-    def _putextgstates(self):
-        for i, gs in enumerate(self.ext_gstates):
-            self._newobj()
-            self._out('<</Type /ExtGState')
-            for k, v in gs.items():
-                self._out(f'/{k} {v}')
-            self._out('>>')
-            self._out('endobj')
-
-    def _putresources(self):
-        self._putextgstates()
-        super()._putresources()
-        if self.ext_gstates:
-            self._out('/ExtGState <<')
-            for i in range(1, len(self.ext_gstates) + 1):
-                self._out(f'/GS{i} {self.n - len(self.ext_gstates) + i - 1} 0 R')
-            self._out('>>')
-    # ----------------------------------------------------------
 
     def header(self):
-        # 1. FOND IMAGE
+        # 1. FOND IMAGE (Le calque transparent est DÉJÀ dessiné sur l'image)
         if self.bg_path and os.path.exists(self.bg_path):
             try:
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
             except: pass
-        
-        # 2. CALQUE GRIS TRANSPARENT
-        # REGLAGE DU "VOILE"
-        self.set_alpha(0.60) # 0.60 = On voit bien l'image à travers
-        
-        # COULEUR GRISE LEGERE (RGB: 240, 240, 240)
-        self.set_fill_color(240, 240, 240) 
-        
-        # Marge de 15mm sur les côtés
-        self.rect(15, 15, 180, 267, 'F') 
-        
-        # IMPORTANT : On remet l'opacité à 100% pour le texte
-        self.set_alpha(1.0) 
+        else:
+            # S'il n'y a pas d'image uploadee, on met juste un fond gris normal
+            self.set_fill_color(245, 245, 245)
+            self.rect(15, 15, 180, 267, 'F') 
 
         # 3. TITRE "DEVIS"
         self.set_y(25) 
@@ -111,16 +72,42 @@ class FusionIA(FPDF):
         self.set_text_color(100, 100, 100)
         self.cell(0, 10, "Document généré par Devo Pro", 0, 0, 'C')
 
-# Fonction de génération
+# Fonction de génération AVEC MANIPULATION D'IMAGE INTELLIGENTE
 def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     bg_path = None
     if uploaded_bg_file:
-        file_ext = os.path.splitext(uploaded_bg_file.name)[1].lower()
-        if not file_ext: file_ext = ".png"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
-            uploaded_bg_file.seek(0)
-            temp_file.write(uploaded_bg_file.read())
-            bg_path = temp_file.name
+        try:
+            # 1. On ouvre l'image avec Pillow
+            img = Image.open(uploaded_bg_file).convert("RGBA")
+            
+            # 2. On la redimensionne au format A4 pour une bonne qualité
+            img = img.resize((1500, 2121), Image.Resampling.LANCZOS)
+            
+            # 3. On crée le "calque" transparent gris/beige
+            overlay = Image.new('RGBA', img.size, (255, 255, 255, 0))
+            draw = ImageDraw.Draw(overlay)
+            
+            # Marges proportionnelles (15mm sur du A4)
+            margin_x = int(1500 * (15 / 210))
+            margin_y = int(2121 * (15 / 297))
+            
+            # 4. On dessine le rectangle gris semi-transparent SUR l'image
+            # Format couleur : (Rouge, Vert, Bleu, Transparence)
+            # Transparence : 0 (invisible) à 255 (opaque). Ici 170 = ~65% opaque.
+            draw.rectangle(
+                [margin_x, margin_y, 1500 - margin_x, 2121 - margin_y], 
+                fill=(245, 245, 245, 170) 
+            )
+            
+            # 5. On fusionne les deux (Image + Rectangle)
+            final_img = Image.alpha_composite(img, overlay).convert("RGB")
+            
+            # 6. On sauvegarde ça dans un fichier temporaire
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+                final_img.save(temp_file.name, format="JPEG", quality=95)
+                bg_path = temp_file.name
+        except Exception as e:
+            st.error(f"Erreur lors du traitement de l'image : {e}")
     
     pdf = FusionIA(bg_path=bg_path)
     pdf.add_page()
@@ -133,7 +120,6 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf.set_font("Helvetica", size=10)
     pdf.set_text_color(10, 10, 10) # Texte presque noir
     
-    # COLONNE GAUCHE (Tes infos)
     x_left = 25
     pdf.set_xy(x_left, y_start)
     pdf.set_font("Helvetica", 'B', 10)
@@ -146,7 +132,6 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf.set_x(x_left)
     pdf.cell(80, 5, "Lieu : Île-de-France", 0, 1)
 
-    # COLONNE DROITE (Infos Client)
     x_right = 110
     pdf.set_xy(x_right, y_start)
     pdf.set_font("Helvetica", 'B', 10)
@@ -201,7 +186,7 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     # --- MERCI (Bas de page) ---
     pdf.set_y(240)
     pdf.set_font("Times", 'I', 22)
-    pdf.set_text_color(160, 120, 90) # Garde une touche dorée pour le merci
+    pdf.set_text_color(160, 120, 90)
     pdf.cell(0, 10, "MERCI DE VOTRE CONFIANCE", 0, 1, 'C')
 
     try:
