@@ -31,7 +31,7 @@ if selection and selection['selection']['rows']:
         if p not in st.session_state['produits_text']:
             st.session_state['produits_text'] += f"- 1 {p}\n"
 
-# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE BEIGE TRANSPARENT) ---
+# --- 3. L'IA DE FUSION (MOTEUR GRAPHIQUE GRIS TRANSPARENT) ---
 class FusionIA(FPDF):
     def __init__(self, bg_path=None):
         super().__init__()
@@ -42,7 +42,6 @@ class FusionIA(FPDF):
 
     # --- FONCTIONS TECHNIQUES TRANSPARENCE ---
     def set_alpha(self, alpha, bm='Normal'):
-        # alpha: 0.0 (transparent) à 1.0 (opaque)
         gs = {'ca': alpha, 'CA': alpha, 'BM': '/' + bm}
         self.ext_gstates.append(gs)
         self.set_ext_gstate(len(self.ext_gstates))
@@ -73,36 +72,35 @@ class FusionIA(FPDF):
         # 1. FOND IMAGE
         if self.bg_path and os.path.exists(self.bg_path):
             try:
-                # L'image est placée normalement (opaque) au fond
                 self.image(self.bg_path, x=0, y=0, w=210, h=297)
             except: pass
         
-        # 2. CALQUE BEIGE SEMI-TRANSPARENT
-        # On active la transparence (0.75 = on voit l'image à travers, mais le texte reste lisible)
-        self.set_alpha(0.75) 
+        # 2. CALQUE GRIS TRANSPARENT
+        # REGLAGE DU "VOILE"
+        self.set_alpha(0.60) # 0.60 = On voit bien l'image à travers
         
-        # COULEUR BEIGE CRÈME (RGB: 250, 245, 235) au lieu de blanc pur
-        self.set_fill_color(250, 245, 235) 
+        # COULEUR GRISE LEGERE (RGB: 240, 240, 240)
+        self.set_fill_color(240, 240, 240) 
         
         # Marge de 15mm sur les côtés
         self.rect(15, 15, 180, 267, 'F') 
         
-        # IMPORTANT : On remet l'opacité à 100% pour le texte qui suit
+        # IMPORTANT : On remet l'opacité à 100% pour le texte
         self.set_alpha(1.0) 
 
-        # 3. TITRE "DEVIS" (Style Élégant)
+        # 3. TITRE "DEVIS"
         self.set_y(25) 
         self.set_font('Times', '', 45) 
-        self.set_text_color(160, 120, 90) # Couleur Bronze/Or
+        self.set_text_color(80, 80, 80) # Gris foncé élégant
         self.cell(0, 15, "D E V I S", 0, 1, 'C')
         
         # Sous-titre
         self.set_font('Times', 'I', 14)
-        self.set_text_color(60, 50, 40) # Brun foncé pour lisibilité sur beige
+        self.set_text_color(50, 50, 50) 
         self.cell(0, 10, "Wassah Event - Des événements sur-mesure", 0, 1, 'C')
         
         # Ligne de séparation
-        self.set_draw_color(160, 120, 90)
+        self.set_draw_color(100, 100, 100)
         self.set_line_width(0.3)
         self.line(40, self.get_y()+2, 170, self.get_y()+2)
         self.ln(10)
@@ -133,7 +131,7 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     
     # --- BLOC DOUBLE COLONNE ---
     pdf.set_font("Helvetica", size=10)
-    pdf.set_text_color(20, 20, 20) # Texte presque noir
+    pdf.set_text_color(10, 10, 10) # Texte presque noir
     
     # COLONNE GAUCHE (Tes infos)
     x_left = 25
@@ -187,7 +185,7 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     pdf.ln(15)
     
     x_sep = (210 - 50) / 2
-    pdf.set_draw_color(160, 120, 90)
+    pdf.set_draw_color(100, 100, 100)
     pdf.line(x_sep, pdf.get_y(), x_sep + 50, pdf.get_y())
     pdf.ln(5)
     
@@ -197,13 +195,13 @@ def generer_rendu_ia(info_client, df_panier, total_ttc, uploaded_bg_file):
     # Conditions
     pdf.ln(5)
     pdf.set_font("Helvetica", size=8)
-    pdf.set_text_color(80, 80, 80)
+    pdf.set_text_color(60, 60, 60)
     pdf.multi_cell(0, 4, "Conditions : Paiement possible en 2 fois (Acompte 50%).\nAucun remboursement en cas d'annulation moins de 7 jours avant.", 0, 'C')
     
     # --- MERCI (Bas de page) ---
     pdf.set_y(240)
     pdf.set_font("Times", 'I', 22)
-    pdf.set_text_color(160, 120, 90)
+    pdf.set_text_color(160, 120, 90) # Garde une touche dorée pour le merci
     pdf.cell(0, 10, "MERCI DE VOTRE CONFIANCE", 0, 1, 'C')
 
     try:
